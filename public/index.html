@@ -100,59 +100,37 @@
     <section class="pane library" aria-labelledby="libTitle">
       <div class="pane-head">
         <div class="pane-title-row">
-          <h2 id="libTitle" class="pane-title">Rule library</h2>
+          <h2 id="libTitle" class="pane-title">Routing rule library</h2>
           <span class="pane-sub" id="libCounts"></span>
         </div>
-        <div class="target" id="activeTarget" aria-live="polite"></div>
+        <div class="tabs" id="tabs" role="tablist" aria-label="List categories"></div>
         <label class="search">
           <svg class="ic"><use href="#i-search"/></svg>
           <span class="sr-only">Search lists</span>
-          <input type="search" id="search" placeholder="Search lists — telegram, pk, AS17557…" autocomplete="off" spellcheck="false">
+          <input type="search" id="search" placeholder="Search — YouTube, Pakistan, PTCL, AS17557…" autocomplete="off" spellcheck="false">
           <kbd class="hide-sm">/</kbd>
         </label>
-        <div class="tabs" id="tabs" role="tablist" aria-label="List categories"></div>
       </div>
       <div class="list" id="list" role="tabpanel" aria-labelledby="libTitle"></div>
     </section>
 
-    <section class="pane rules" aria-labelledby="planTitle">
-      <div class="plan-wrap">
-        <div class="pane-title-row">
-          <h2 id="planTitle" class="pane-title">What will happen</h2>
-          <span class="pane-sub">in the order Hiddify checks</span>
+    <section class="pane rules" aria-labelledby="splitTitle">
+      <div class="pane-head split-head">
+        <div class="split-title-row">
+          <h2 id="splitTitle" class="pane-title">Split tunneling</h2>
+          <div class="segmented mode" role="radiogroup" aria-label="Split tunneling mode" id="mode">
+            <button type="button" role="radio" data-value="off" title="Everything uses the VPN — Hiddify's default">Off</button>
+            <button type="button" role="radio" data-value="include" title="Only what you pick uses the VPN">Include</button>
+            <button type="button" role="radio" data-value="exclude" title="What you pick bypasses the VPN">Exclude</button>
+          </div>
+          <button type="button" class="btn btn-ghost btn-xs adv-toggle" id="advToggle" aria-pressed="false" title="Several rules with their own outbound"><svg class="ic"><use href="#i-sliders"/></svg>Advanced</button>
         </div>
-        <ol class="plan" id="plan" aria-live="polite"></ol>
+        <p class="mode-desc" id="modeDesc"></p>
+        <div class="target" id="activeTarget" aria-live="polite"></div>
       </div>
 
       <div class="rules-body" id="rulesBody">
-        <div class="section-row">
-          <h2 class="section-title">Your rules</h2>
-          <span class="pane-sub">first match wins</span>
-        </div>
-        <ol class="rule-list" id="ruleList"></ol>
-        <button class="btn btn-dashed" id="addRule" type="button"><svg class="ic"><use href="#i-plus"/></svg>Add rule</button>
-
-        <div class="settings">
-          <div class="setting">
-            <span class="setting-label" id="fallbackTitle">Everything else
-              <button type="button" class="tip" id="fallbackInfo" aria-label="About everything else"><svg class="ic"><use href="#i-info"/></svg></button>
-            </span>
-            <div class="segmented" role="radiogroup" aria-labelledby="fallbackTitle" id="fallback">
-              <button type="button" role="radio" data-value="direct"><svg class="ic"><use href="#i-direct"/></svg>Direct</button>
-              <button type="button" role="radio" data-value="proxy"><svg class="ic"><use href="#i-vpn"/></svg>VPN</button>
-            </div>
-          </div>
-          <details class="managed" id="managed">
-            <summary>
-              <span class="setting-label">Hiddify built-ins
-                <span class="tip" title="Hiddify fills these in itself (Windows and Android differ) and checks them before your rules. This file only switches them on or off."><svg class="ic"><use href="#i-info"/></svg></span>
-              </span>
-              <span class="managed-summary" id="managedSummary"></span>
-              <svg class="ic chev"><use href="#i-chevron"/></svg>
-            </summary>
-            <div class="managed-body" id="builtins"></div>
-          </details>
-        </div>
+        <ol class="route" id="route" aria-label="Rules in the order Hiddify checks them"></ol>
       </div>
 
       <div class="exportbar">
