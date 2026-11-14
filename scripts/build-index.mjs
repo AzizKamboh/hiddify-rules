@@ -7,7 +7,7 @@
 // Env:   PAGES_URL  public URL of the site (default: derived from GITHUB_REPOSITORY)
 
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, existsSync, readFileSync, writeFileSync, rmSync, readdirSync } from 'node:fs';
+import { mkdirSync, existsSync, readFileSync, writeFileSync, rmSync, readdirSync, copyFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { gunzipSync } from 'node:zlib';
 import { fileURLToPath } from 'node:url';
@@ -142,15 +142,14 @@ async function main() {
     for (const s of f.ip) if (!serviceSet.has(s)) problems.push(`featured ${f.id}: no IP list "${s}"`);
   }
   for (const g of catalog.asnGroups) for (const a of g.items) if (!asnSet.has(a.asn)) problems.push(`ASN ${a.asn} (${a.label}) not upstream`);
-  for (const p of catalog.presets) for (const c of p.rules.flatMap((r) => r.countries || [])) if (!countrySet.has(c)) problems.push(`preset ${p.id}: no country "${c}"`);
   if (problems.length) console.warn(`catalog problems (dropped from the page):\n  ${problems.join('\n  ')}`);
   const featured = catalog.featured
     .map((f) => ({ ...f, site: f.site.filter((s) => siteNames.has(s)), ip: f.ip.filter((s) => serviceSet.has(s)) }))
     .filter((f) => f.site.length || f.ip.length);
   const asnGroups = catalog.asnGroups.map((g) => ({ ...g, items: g.items.filter((a) => asnSet.has(a.asn)) }));
 
-  // mirror IP-only lists under geoip-* names: all service lists + catalog ASNs
-  const mirrored = { services: [], asns: [] };
+  // mirror IP-only lists under geoip-* names: all service lists and every network (about 6 MB in all)
+  const mirrored = { services: [], asns: [], allAsns: false };
   if (mirror) {
     rmSync(setsDir, { recursive: true, force: true });
     mkdirSync(setsDir, { recursive: true });
@@ -158,9 +157,27 @@ async function main() {
       await download(raw('mc', `geo/geoip/${n}.srs`), join(setsDir, `geoip-${n}.srs`));
       mirrored.services.push(n);
     }
-    for (const a of asnGroups.flatMap((g) => g.items.map((i) => i.asn))) {
-      await download(raw('mc', `asn/AS${a}.srs`), join(setsDir, `geoip-as${a}.srs`));
-      mirrored.asns.push(a);
+    // every network list, fetched in one go through the blob-less clone made for the listing
+    try {
+      const dir = join(cache, 'mc');
+      git(['sparse-checkout', 'set', '--no-cone', '/asn/*.srs'], dir);
+      git(['checkout', '--quiet', '--force', 'HEAD'], dir);
+      let n = 0;
+      for (const f of readdirSync(join(dir, 'asn'))) {
+        const m = f.match(/^AS(\d+)\.srs$/);
+        if (!m) continue;
+        copyFileSync(join(dir, 'asn', f), join(setsDir, `geoip-as${m[1]}.srs`));
+        n++;
+      }
+      mirrored.allAsns = n > 0;
+      console.log(`mirrored ${n} network lists`);
+    } catch (err) {
+      // fall back to the catalog networks one by one; others then link to MetaCubeX
+      console.warn(`network lists not mirrored in bulk: ${err.message}`);
+      for (const a of asnGroups.flatMap((g) => g.items.map((i) => i.asn))) {
+        await download(raw('mc', `asn/AS${a}.srs`), join(setsDir, `geoip-as${a}.srs`));
+        mirrored.asns.push(a);
+      }
     }
     console.log(`mirrored ${readdirSync(setsDir).length} IP lists to public/sets/`);
   }
@@ -192,9 +209,9 @@ async function main() {
     services,
     block: hgBlock,
     mirroredAsns: mirrored.asns,
+    allAsnsMirrored: mirrored.allAsns,
     featured,
     asnGroups,
-    presets: catalog.presets,
     serviceDomains: catalog.serviceDomains || {},
     problems,
   };

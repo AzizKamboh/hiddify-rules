@@ -1,5 +1,5 @@
 import {
-  toJsonFile, toImportLink, toRouteRule, parseRouteRules, lint, hasCondition, BUILTIN_DEFAULTS,
+  toJsonFile, parseRouteRules, BUILTIN_DEFAULTS,
 } from './lib/hiddify.js?v=__BUILD__';
 
 // ---------- constants ----------
@@ -21,16 +21,6 @@ const MODES = {
   exclude: { desc: 'What you pick bypasses the VPN and connects directly through your ISP. Everything else uses the VPN — like Hiddify’s default, where only your local network bypasses it.', row: 'Bypass VPN', out: 'direct' },
   include: { desc: 'Only what you pick uses the VPN. Everything else — your local network included — connects directly through your ISP.', row: 'Use VPN', out: 'proxy' },
 };
-const EXTRA_FIELDS = [
-  ['domainSuffixes', 'Domain suffixes', 'youtube.com\n.pk'],
-  ['domains', 'Exact domains', 'www.example.com'],
-  ['domainKeywords', 'Domain keywords', 'googlevideo'],
-  ['domainRegexes', 'Domain regex', '^ads\\.'],
-  ['ipCidrs', 'IP / CIDR', '1.1.1.1/32'],
-  ['portRanges', 'Ports', '443 or 1000:2000'],
-  ['processNames', 'Windows apps', 'chrome.exe'],
-  ['packageNames', 'Android apps', 'com.google.android.youtube'],
-];
 const BUILTIN_INFO = {
   bypassLan: ['Bypass LAN', 'Local network and private addresses connect directly.', 'direct'],
   systemDirect: ['System services', 'Updates, app store, push and cloud sync connect directly. Windows: Microsoft · Android: Google/Android · iOS & macOS: Apple · Linux: distro mirrors.', 'direct'],
@@ -59,31 +49,17 @@ let siteDomains = new Map();
 let state = null;
 let tab = 'services';
 let query = '';
-let uid = 1;
 let entriesCache = null;
 let shownEntries = [];   // lists on screen in the library, for Select all
-const openConditions = new Set();
 
 // ---------- state ----------
 
-function emptyRule(name = 'New rule', outbound = 'proxy') {
-  const rule = { id: uid++, name, outbound, enabled: true, items: [] };
-  for (const [key] of EXTRA_FIELDS) rule[key] = [];
-  return rule;
-}
-
 /** Hiddify's own defaults: built-ins as shipped, nothing split, everything through the VPN. */
 function defaultState() {
-  return { builtins: { ...BUILTIN_DEFAULTS }, regionSet: false, mode: 'exclude', picks: [], blocked: [], rules: [], fallback: 'proxy', active: null };
+  return { builtins: { ...BUILTIN_DEFAULTS }, regionSet: false, mode: 'exclude', picks: [], blocked: [] };
 }
 
-const extraCount = (rule) => EXTRA_FIELDS.reduce((n, [k]) => n + (rule[k]?.length ? 1 : 0), 0);
-const ruleHasContent = (rule) => rule.items.length > 0 || extraCount(rule) > 0;
-
-/**
- * Turns a list of rules (from an old save or a loaded file) into the simple modes when it fits one,
- * otherwise keeps it as Advanced so nothing is lost. `emptyIsOff`: an empty list means Hiddify's default.
- */
+/** Turns a list of rules (from an old save or an uploaded file) into Include or Exclude picks. */
 function fromRules({ builtins, regionSet, rules, fallback }) {
   const base = { ...defaultState(), builtins: { ...BUILTIN_DEFAULTS, ...(builtins || {}) }, regionSet: Boolean(regionSet) };
   const real = (rules || []).filter((r) => r.enabled !== false && (r.items || []).length);
@@ -105,24 +81,16 @@ function load() {
     const saved = JSON.parse(localStorage.getItem(STORE_KEY));
     if (saved && saved.mode === 'advanced') return fromRules(saved);
     if (saved && saved.mode) {
-      const s = { ...defaultState(), ...saved, builtins: { ...BUILTIN_DEFAULTS, ...(saved.builtins || {}) } };
-      if (!MODES[s.mode]) s.mode = 'exclude';
-      for (const r of s.rules) { r.items ||= []; for (const [key] of EXTRA_FIELDS) r[key] ||= []; }
-      uid = Math.max(0, ...s.rules.map((r) => r.id || 0)) + 1;
+      const d = defaultState();
+      const s = { builtins: { ...BUILTIN_DEFAULTS, ...(saved.builtins || {}) }, regionSet: Boolean(saved.regionSet), mode: MODES[saved.mode] ? saved.mode : d.mode, picks: saved.picks || [], blocked: saved.blocked || [] };
       return s;
     }
-    if (saved && Array.isArray(saved.rules)) {
-      // a save from before split tunneling: numbered rules + "everything else"
-      uid = Math.max(0, ...saved.rules.map((r) => r.id || 0)) + 1;
-      return fromRules(saved);
-    }
+    // a save from before split tunneling: numbered rules + "everything else"
+    if (saved && Array.isArray(saved.rules)) return fromRules(saved);
   } catch { /* ignore broken saves */ }
   return defaultState();
 }
 
-const isAdvanced = () => false; // the custom rule editor is switched off for now
-const activeRule = () => state.rules.find((r) => r.id === state.active) || state.rules[0];
-const ruleNumber = (rule) => state.rules.indexOf(rule) + 1;
 const itemKey = (item) => `${item.kind}:${item.n}`;
 /** How many tags the picks show: a popular service picked whole (sites + IPs) counts once. */
 function tagCount(items) {
@@ -134,7 +102,7 @@ function tagCount(items) {
   }
   return n;
 }
-const pickCount = () => (isAdvanced() ? state.rules.reduce((n, r) => n + tagCount(r.items), 0) : tagCount(state.picks) + tagCount(state.blocked));
+const pickCount = () => tagCount(state.picks) + tagCount(state.blocked);
 
 // ---------- lists → URLs ----------
 
@@ -145,7 +113,7 @@ function itemUrl(item) {
     case 'site': return fill(siteSource.get(item.n) === 'm' ? u.site_m : u.site_s);
     case 'country': return fill(u.country);
     case 'service': return fill(u.service);
-    case 'asn': return fill(index.mirroredAsns.includes(Number(item.n)) ? u.asn_mirror : u.asn);
+    case 'asn': return fill(index.allAsnsMirrored || index.mirroredAsns.includes(Number(item.n)) ? u.asn_mirror : u.asn);
     case 'block': return fill(u.block);
     default: return item.n;
   }
@@ -192,24 +160,12 @@ function itemLabel(item) {
 
 /** What the generator gets: the simple modes become at most two rules plus "everything else". */
 function toBuilderState() {
-  if (isAdvanced()) {
-    return {
-      builtins: state.builtins, regionSet: state.regionSet, fallback: state.fallback,
-      rules: state.rules.map((r) => ({ ...r, ruleSets: r.items.map(itemUrl) })),
-    };
-  }
   const rules = [];
   const mk = (name, outbound, items) => ({ name, outbound, enabled: true, items, ruleSets: items.map(itemUrl) });
   if (state.blocked.length) rules.push(mk('AdBlock', 'block', state.blocked));
-  if (state.mode !== 'off' && state.picks.length) rules.push(mk(MODES[state.mode].row, MODES[state.mode].out, state.picks));
+  if (state.picks.length) rules.push(mk(MODES[state.mode].row, MODES[state.mode].out, state.picks));
   return { builtins: state.builtins, regionSet: state.regionSet, fallback: state.mode === 'include' ? 'direct' : 'proxy', rules };
 }
-
-/** Include with nothing picked sends everything direct: the one setup that quietly turns the VPN off. */
-const nothingUsesVpn = () => {
-  const b = toBuilderState();
-  return b.fallback === 'direct' && !b.rules.some((r) => r.enabled !== false && r.outbound === 'proxy' && hasCondition(r));
-};
 
 // ---------- icons: service favicons and country flags ----------
 
@@ -355,7 +311,7 @@ function allEntries() {
   }
   const blocks = [...index.block].sort((a, b) => az(blockName(a), blockName(b)) || (a.startsWith('geoip') ? 1 : -1));
   for (const b of blocks) {
-    out.push({ tab: 'block', visual: blockVisual(b), label: blockName(b), meta: b.startsWith('geoip') ? 'IP list' : 'domains', items: [{ kind: 'block', n: b }], search: `${blockName(b)} ${b}` });
+    out.push({ tab: 'block', visual: blockVisual(b), label: `${blockName(b)}${b.startsWith('geoip') ? ' IPs' : ''}`, meta: b.startsWith('geoip') ? 'IP list' : 'domains', items: [{ kind: 'block', n: b }], search: `${blockName(b)} ${b}` });
   }
   return out;
 }
@@ -403,7 +359,6 @@ function renderTabs() {
 
 /** Where a tick in the library lands, given the mode and the kind of list. */
 function bucketFor(items) {
-  if (isAdvanced()) return activeRule()?.items || null;
   return items.every((i) => i.kind === 'block') ? state.blocked : state.picks;
 }
 
@@ -412,11 +367,8 @@ function isPicked(items) {
   return Boolean(bucket) && items.every((i) => bucket.some((x) => itemKey(x) === itemKey(i)));
 }
 
-function renderTarget() { /* the 'Adding to' line was removed */ }
-
 function renderLibrary() {
   renderTabs();
-  renderTarget();
   entriesCache ||= allEntries();
   const q = query.trim().toLowerCase();
   const qNum = q.replace(/^as(?=\d)/, '');
@@ -485,21 +437,20 @@ function entryButton(e) {
   b.setAttribute('aria-pressed', String(on));
   b.innerHTML = `<span class="check">${icon('i-check')}</span>${e.visual || ''}<span class="name">${escapeHtml(e.label)}</span>`
     + (e.meta ? `<span class="meta">${escapeHtml(e.meta)}</span>` : '');
-  b.onclick = () => toggleItems(e.items, !on, e.label);
+  b.onclick = () => toggleItems(e.items, !on);
   return b;
 }
 
-function toggleItems(items, add, label) {
+function toggleItems(items, add) {
   const isBlock = items.every((i) => i.kind === 'block');
   const bucket = bucketFor(items);
-  if (!bucket) return toast('Add a rule first', 'err');
   for (const item of items) {
     const i = bucket.findIndex((x) => itemKey(x) === itemKey(item));
     if (i >= 0) bucket.splice(i, 1);
     if (add) bucket.push(item);
   }
   render();
-  flash(isAdvanced() ? `rule-${state.active}` : isBlock ? 'blocked' : 'picks');
+  flash(isBlock ? 'blocked' : 'picks');
 }
 
 function flash(key) {
@@ -514,34 +465,6 @@ function flash(key) {
 
 function outBadge(out) {
   return `<span class="out-badge out-${out}">${icon(OUT[out].icon)}${OUT[out].label}</span>`;
-}
-
-/** Tags for picked lists; a popular service picked whole (sites + IPs) shows as one tag. */
-function chipList(items, remove) {
-  const wrap = document.createElement('div');
-  wrap.className = 'chips';
-  const keys = new Set(items.map(itemKey));
-  const used = new Set();
-  const groups = [];
-  for (const f of index.featured) {
-    const fi = featuredItems(f);
-    if (fi.length > 1 && fi.every((i) => keys.has(itemKey(i)) && !used.has(itemKey(i)))) {
-      fi.forEach((i) => used.add(itemKey(i)));
-      groups.push({ label: f.label, kind: describeFeatured(f), visual: visual({ domain: f.domain, letter: f.label }), members: items.filter((i) => fi.some((x) => itemKey(x) === itemKey(i))) });
-    }
-  }
-  for (const item of items) {
-    if (!used.has(itemKey(item))) groups.push({ label: itemLabel(item), kind: KIND_LABEL[item.kind], visual: itemVisual(item), members: [item] });
-  }
-  for (const g of groups) {
-    const chip = document.createElement('span');
-    chip.className = 'chip';
-    chip.title = g.members.map(itemUrl).join('\n');
-    chip.innerHTML = `${g.visual}<span class="label">${escapeHtml(g.label)}</span><span class="kind">${escapeHtml(g.kind)}</span><button type="button" aria-label="Remove ${escapeHtml(g.label)}">${icon('i-x')}</button>`;
-    $('button', chip).onclick = () => remove(g.members);
-    wrap.append(chip);
-  }
-  return wrap;
 }
 
 const POPULAR_SITES = ['youtube', 'google', 'facebook', 'instagram', 'whatsapp', 'tiktok', 'netflix', 'twitter', 'telegram', 'wikimedia'];
@@ -663,20 +586,6 @@ function renderRoute() {
   }
   ol.append(section);
 
-  if (isAdvanced()) {
-    state.rules.forEach((rule, i) => ol.append(ruleCard(rule, i, ++n)));
-    const add = document.createElement('li');
-    add.className = 'route-add';
-    add.innerHTML = `<button class="btn btn-dashed" type="button">${icon('i-plus')}Add rule</button>`;
-    $('button', add).onclick = () => {
-      const rule = emptyRule(`Rule ${state.rules.length + 1}`, 'proxy');
-      state.rules.push(rule);
-      state.active = rule.id;
-      render(`${rule.id}:name`);
-      $(`[data-fk="${rule.id}:name"]`)?.select();
-    };
-    ol.append(add);
-  } else {
     if (state.blocked.length) {
       ol.append(routeRow({
         n: ++n, title: 'AdBlock', out: 'block', key: 'blocked',
@@ -685,7 +594,6 @@ function renderRoute() {
     }
     const m = MODES[state.mode];
     const body = document.createElement('div');
-    // Exclude: the local network bypasses the VPN too (Hiddify's Bypass LAN rule), shown as the first item
     if (state.picks.length) {
       body.append(groupedList(state.picks, (gone) => { state.picks = state.picks.filter((x) => !gone.includes(x)); render(); }));
     } else {
@@ -697,21 +605,12 @@ function renderRoute() {
       body.append(p);
     }
     ol.append(routeRow({ n: ++n, title: m.row, out: m.out, key: 'picks', body }));
-  }
 
-  if (isAdvanced()) {
-    const region = document.createElement('li');
-    region.className = 'route-note';
-    region.innerHTML = '<label class="region" title="Tick only if Hiddify’s Region setting is Iran, China, Russia, Afghanistan, Indonesia, Turkey or Brazil. Pakistan uses Other."><input type="checkbox" data-fk="b:region"><span>A region is set in Hiddify (not “Other”)</span></label>';
-    $('input', region).checked = state.regionSet;
-    $('input', region).onchange = (e) => { state.regionSet = e.target.checked; render(); };
-    ol.append(region);
-  }
 }
 
 function renderMode() {
   for (const b of $$('#mode button')) {
-    const on = !isAdvanced() && b.dataset.value === state.mode;
+    const on = b.dataset.value === state.mode;
     b.setAttribute('aria-checked', String(on));
     b.setAttribute('aria-selected', String(on));
     b.tabIndex = on ? 0 : -1;
@@ -723,202 +622,16 @@ function renderMode() {
   $('#modeBox').title = MODES[state.mode].desc;
 }
 
-async function setMode(mode) {
+function setMode(mode) {
   if (mode === state.mode) return;
-  if (isAdvanced()) {
-    const items = state.rules.flatMap((r) => r.items);
-    const custom = state.rules.some((r) => extraCount(r) > 0) || new Set(state.rules.filter(ruleHasContent).map((r) => r.outbound)).size > 1;
-    if (custom && !(await confirmDialog('Leave Advanced?', 'Your custom rules become one simple list. Domains, IPs, ports and apps typed into rules are dropped.', 'Switch'))) {
-      renderMode();
-      return;
-    }
-    state.blocked = items.filter((i) => i.kind === 'block');
-    state.picks = items.filter((i) => i.kind !== 'block');
-    state.rules = [];
-  }
   state.mode = mode;
   render();
-}
-
-function enterAdvanced() {
-  if (isAdvanced()) return setMode(state.picks.length ? 'include' : 'off');
-  const b = toBuilderState();
-  state.rules = b.rules.map((r) => {
-    const rule = emptyRule(r.name, r.outbound);
-    rule.items = [...r.items];
-    return rule;
-  });
-  if (!state.rules.length) state.rules.push(emptyRule('Rule 1', 'proxy'));
-  state.fallback = b.fallback;
-  state.active = state.rules[state.rules.length - 1].id;
-  state.mode = 'advanced';
-  render();
-  toast('Advanced: your choices are now editable rules');
-  return undefined;
-}
-
-// ---------- advanced rule cards ----------
-
-function ruleCard(rule, i, number) {
-  const li = document.createElement('li');
-  li.className = 'rule';
-  li.dataset.row = `rule-${rule.id}`;
-  li.classList.toggle('active', rule.id === state.active);
-  li.classList.toggle('off', !rule.enabled);
-  li.dataset.id = rule.id;
-  const total = state.rules.length;
-  li.innerHTML = `
-    <div class="rule-head">
-      <span class="step-num" title="Checked ${ordinal(number)}">${number}</span>
-      <input class="rule-name" data-fk="${rule.id}:name" aria-label="Rule name" maxlength="80" placeholder="Untitled rule">
-      <div class="rule-controls">
-        <span class="outbound" data-out="${rule.outbound}">${icon(OUT[rule.outbound].icon)}
-          <select class="select select-sm" data-fk="${rule.id}:out" aria-label="Send matching traffic to">
-            ${Object.entries(OUT).map(([v, o]) => `<option value="${v}"${v === rule.outbound ? ' selected' : ''}>${o.label}</option>`).join('')}
-          </select>
-        </span>
-        <label class="switch" title="${rule.enabled ? 'Rule is on' : 'Rule is off'}"><input type="checkbox" role="switch" data-fk="${rule.id}:on" aria-label="Rule on"><span class="track"></span></label>
-        <span class="rule-tools">
-          <button type="button" class="iconbtn up" data-fk="${rule.id}:up" aria-label="Move up" title="Move up (Alt+↑)" ${i === 0 ? 'disabled' : ''}>${icon('i-up')}</button>
-          <button type="button" class="iconbtn down" data-fk="${rule.id}:down" aria-label="Move down" title="Move down (Alt+↓)" ${i === total - 1 ? 'disabled' : ''}>${icon('i-down')}</button>
-          <button type="button" class="iconbtn danger del" data-fk="${rule.id}:del" aria-label="Delete rule" title="Delete rule">${icon('i-trash')}</button>
-        </span>
-      </div>
-    </div>
-    <div class="rule-main">
-      <div class="chips-slot"></div>
-      <details class="conditions">
-        <summary data-fk="${rule.id}:cond">${icon('i-sliders')}More conditions</summary>
-        <div class="cond-grid"></div>
-      </details>
-    </div>`;
-
-  const name = $('.rule-name', li);
-  name.value = rule.name;
-  name.oninput = () => { rule.name = name.value; renderTarget(); renderOutput(); save(); };
-  const sel = $('select', li);
-  sel.onchange = () => { rule.outbound = sel.value; render(); };
-  const on = $('.switch input', li);
-  on.checked = rule.enabled;
-  on.onchange = () => { rule.enabled = on.checked; render(); };
-  $('.up', li).onclick = () => move(rule, -1);
-  $('.down', li).onclick = () => move(rule, 1);
-  $('.del', li).onclick = () => removeRule(rule);
-
-  const slot = $('.chips-slot', li);
-  if (!rule.items.length) {
-    const p = document.createElement('p');
-    p.className = 'route-empty';
-    p.innerHTML = rule.id === state.active
-      ? 'Empty — tick lists on the left to add them here.'
-      : `Empty. <button type="button" class="linkbtn" data-fk="${rule.id}:pick">Add lists to this rule</button>`;
-    slot.replaceWith(p);
-    const pick = $('.linkbtn', p);
-    if (pick) pick.onclick = () => { setActive(rule.id); setView('library'); };
-  } else {
-    slot.replaceWith(chipList(rule.items, (gone) => { rule.items = rule.items.filter((x) => !gone.includes(x)); render(`${rule.id}:name`); }));
-  }
-
-  const details = $('.conditions', li);
-  const count = extraCount(rule);
-  if (count) $('summary', details).insertAdjacentHTML('beforeend', `<span class="cond-count">${count}</span>`);
-  details.open = openConditions.has(rule.id);
-  details.ontoggle = () => { if (details.open) openConditions.add(rule.id); else openConditions.delete(rule.id); };
-  const grid = $('.cond-grid', details);
-  for (const [key, label, placeholder] of EXTRA_FIELDS) {
-    const lab = document.createElement('label');
-    lab.innerHTML = `<span>${label}</span><textarea spellcheck="false" data-fk="${rule.id}:${key}" placeholder="${escapeHtml(placeholder)}"></textarea>`;
-    const ta = $('textarea', lab);
-    ta.value = (rule[key] || []).join('\n');
-    ta.rows = 1;
-    const grow = () => { ta.style.height = 'auto'; ta.style.height = `${Math.min(ta.scrollHeight + 2, 160)}px`; ta.style.overflowY = ta.scrollHeight > 158 ? 'auto' : 'hidden'; };
-    ta.addEventListener('input', grow);
-    requestAnimationFrame(grow);
-    details.addEventListener('toggle', grow);
-    ta.onchange = () => { rule[key] = ta.value.split(/[\n,]+/).map((s) => s.trim()).filter(Boolean); render(); };
-    grid.append(lab);
-  }
-  grid.insertAdjacentHTML('beforeend', '<p class="cond-note">One per line. Lists, IPs and domains match if any of them match; ports and apps narrow the rule further. App rules need VPN (TUN) mode, Hiddify’s default.</p>');
-
-  li.addEventListener('click', (ev) => {
-    if (state.active !== rule.id && !ev.target.closest('button, input, select, textarea, summary, a, label')) setActive(rule.id);
-  });
-  li.addEventListener('focusin', (ev) => {
-    if (state.active !== rule.id && ev.target.matches('.rule-name, select, textarea')) {
-      state.active = rule.id;
-      for (const card of $$('#route .rule')) card.classList.toggle('active', Number(card.dataset.id) === state.active);
-      renderLibrary();
-      save();
-    }
-  });
-  li.addEventListener('keydown', (ev) => {
-    if (ev.altKey && (ev.key === 'ArrowUp' || ev.key === 'ArrowDown')) {
-      ev.preventDefault();
-      move(rule, ev.key === 'ArrowUp' ? -1 : 1, document.activeElement?.dataset.fk);
-    }
-  });
-  return li;
-}
-
-function setActive(id) {
-  if (state.active === id) return;
-  state.active = id;
-  render();
-}
-
-function move(rule, dir, keepFocus) {
-  const i = state.rules.indexOf(rule);
-  const j = i + dir;
-  if (j < 0 || j >= state.rules.length) return;
-  state.rules.splice(i, 1);
-  state.rules.splice(j, 0, rule);
-  render(keepFocus || `${rule.id}:${dir < 0 ? 'up' : 'down'}`);
-  flash(`rule-${rule.id}`);
-  announce(`Rule moved to position ${j + 1}`);
-}
-
-async function removeRule(rule) {
-  if (ruleHasContent(rule) && !(await confirmDialog(`Delete “${rule.name || 'Untitled rule'}”?`, 'Its lists and conditions will be removed.', 'Delete'))) return;
-  const i = state.rules.indexOf(rule);
-  state.rules = state.rules.filter((r) => r !== rule);
-  if (state.active === rule.id) state.active = state.rules[Math.max(0, i - 1)]?.id;
-  render();
-  toast('Rule deleted');
 }
 
 // ---------- output ----------
 
 function renderOutput() {
-  const built = toBuilderState();
-  const notes = isAdvanced() && state.rules.some(ruleHasContent) ? lint(built).filter((n) => n.level === 'warn') : [];
-  $$('#notes .note:not(.transient)').forEach((n) => n.remove());
-  $('#notes').insertAdjacentHTML('beforeend', notes.map((n) => `<div class="note ${n.level}">${icon(n.level === 'warn' ? 'i-alert' : 'i-info')}<span>${escapeHtml(n.text)}</span></div>`).join(''));
   $('#ruleCount').textContent = pickCount() || '';
-}
-
-/** Exports go straight through: Include with nothing picked is a valid choice (everything via your ISP). */
-async function confirmExport() {
-  return true;
-}
-
-function highlightJson(text) {
-  return escapeHtml(text).replace(
-    /(&quot;(?:[^&]|&(?!quot;))*?&quot;)(\s*:)?|\b(true|false|null)\b|(-?\d+(?:\.\d+)?)|([{}[\],])/g,
-    (m, str, colon, bool, num, punct) => {
-      if (str) return colon ? `<span class="k">${str}</span><span class="p">${colon}</span>` : `<span class="s">${str}</span>`;
-      if (bool) return `<span class="b">${bool}</span>`;
-      if (num) return `<span class="n">${num}</span>`;
-      return `<span class="p">${punct}</span>`;
-    },
-  );
-}
-
-function openPreview() {
-  const obj = toRouteRule(toBuilderState());
-  $('#preview').innerHTML = highlightJson(JSON.stringify(obj, null, 2));
-  const n = obj['1'].length;
-  $('#previewMeta').textContent = `${n} rule${n === 1 ? '' : 's'} · ${fmtCount(toJsonFile(toBuilderState()).length)} bytes · numbered fields, as Hiddify writes them`;
-  $('#previewDialog').showModal();
 }
 
 function renderSources() {
@@ -936,7 +649,7 @@ function renderSources() {
       <li><span><a href="https://github.com/${s[k].repo}/tree/${s[k].branch}" target="_blank" rel="noopener">${s[k].name}</a><span class="what">${what}</span></span>
       <time datetime="${s[k].updated}">updated ${fmtDate(s[k].updated)}</time></li>`).join('')}${names}
     </ul>
-    <p class="sources-foot">Flags: <a href="https://github.com/lipis/flag-icons" target="_blank" rel="noopener">flag-icons</a> (MIT). Service icons: DuckDuckGo. This page re-reads the lists every day; it last did so ${fmtDate(index.generated)}. <a href="https://github.com/AzizKamboh/hiddify-rules" target="_blank" rel="noopener">Source code on GitHub</a>.</p>`;
+    <p class="sources-foot">Flags: <a href="https://github.com/lipis/flag-icons" target="_blank" rel="noopener">flag-icons</a> (MIT). Service icons: Google, with DuckDuckGo as a fallback. This page re-reads the lists every day; it last did so ${fmtDate(index.generated)}. <a href="https://github.com/AzizKamboh/hiddify-rules" target="_blank" rel="noopener">Source code on GitHub</a>.</p>`;
   $('#syncLine').textContent = `Last synced ${fmtDate(index.generated)}`;
 }
 
@@ -944,7 +657,6 @@ function renderSources() {
 
 function render(focusKey) {
   const fk = focusKey || document.activeElement?.dataset?.fk;
-  if (isAdvanced() && !state.rules.find((r) => r.id === state.active)) state.active = state.rules[0]?.id;
   renderMode();
   renderRoute();
   renderLibrary();
@@ -959,8 +671,7 @@ function render(focusKey) {
 
 // ---------- actions ----------
 
-async function download() {
-  if (!(await confirmExport())) return;
+function download() {
   const blob = new Blob([toJsonFile(toBuilderState())], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
@@ -970,15 +681,6 @@ async function download() {
   a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   toast('route_rules.json downloaded', 'ok');
-}
-
-async function copyText(text, okMessage) {
-  try {
-    await navigator.clipboard.writeText(text);
-    toast(okMessage, 'ok');
-  } catch {
-    toast("Couldn't reach the clipboard — copy it from the preview instead", 'err');
-  }
 }
 
 async function loadFile(file) {
@@ -993,23 +695,10 @@ async function loadFile(file) {
   state = fromRules({ ...parsed, rules });
   render();
   setView('rules');
-  toast(`Loaded ${file.name} — ${state.mode === 'advanced' ? 'opened in Advanced' : `split tunneling: ${state.mode}`}`, 'ok');
+  toast(`Loaded ${file.name} — split tunneling: ${state.mode}`, 'ok');
 }
 
 // ---------- dialogs, toasts ----------
-
-function confirmDialog(title, text, okLabel = 'Confirm') {
-  const dlg = $('#confirmDialog');
-  $('#confirmTitle').textContent = title;
-  $('#confirmText').textContent = text;
-  $('#confirmOk').textContent = okLabel;
-  dlg.returnValue = '';
-  dlg.showModal();
-  $('#confirmOk').focus();
-  return new Promise((resolve) => {
-    dlg.addEventListener('close', () => resolve(dlg.returnValue === 'ok'), { once: true });
-  });
-}
 
 /** No pop-ups: errors appear as a line in the panel for a few seconds; other messages only go to screen readers. */
 function toast(text, kind = '') {
@@ -1035,12 +724,6 @@ function announce(text) {
 
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-}
-
-function ordinal(n) {
-  const s = ['th', 'st', 'nd', 'rd'];
-  const v = n % 100;
-  return n + (s[(v - 20) % 10] || s[v] || s[0]);
 }
 
 // ---------- theme & view ----------
@@ -1158,7 +841,6 @@ async function start() {
 
   $('#reset').onclick = () => {
     state = defaultState();
-    openConditions.clear();
     render();
   };
 
