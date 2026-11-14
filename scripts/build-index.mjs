@@ -120,11 +120,14 @@ async function buildPakistan(problems) {
     const head = line.match(/^\[([a-z0-9-]+)\]\s*(.+)$/);
     if (head) { lists.push({ id: head[1], label: head[2].trim(), domains: [] }); continue; }
     if (!lists.length) continue;
+    // ".gov.pk" is an ending (every site under it), kept without a lookup; "hbl.com" is a site
+    const ending = line.startsWith('.');
     const d = line.toLowerCase().replace(/^\.|\.$/g, '');
-    if (/^[a-z0-9.-]+\.[a-z]{2,}$/.test(d)) lists[lists.length - 1].domains.push(d);
+    if (/^[a-z0-9.-]+\.[a-z]{2,}$/.test(d)) lists[lists.length - 1].domains.push(ending ? `.${d}` : d);
     else problems.push(`pakistan: "${line}" isn't a domain`);
   }
   const all = [...new Set(lists.flatMap((l) => l.domains))];
+  const checked = all.filter((d) => !d.startsWith('.'));
   const alive = new Map();
   const exists = async (d) => {
     for (const q of [() => dns.resolve4(d), () => dns.resolve6(d), () => dns.resolve4(`www.${d}`), () => dns.resolveNs(d)]) {
@@ -132,13 +135,14 @@ async function buildPakistan(problems) {
     }
     return false;
   };
-  for (let i = 0; i < all.length; i += 16) {
-    await Promise.all(all.slice(i, i + 16).map(async (d) => alive.set(d, await exists(d))));
+  for (const d of all) if (d.startsWith('.')) alive.set(d, true);
+  for (let i = 0; i < checked.length; i += 16) {
+    await Promise.all(checked.slice(i, i + 16).map(async (d) => alive.set(d, await exists(d))));
   }
   let gone = all.filter((d) => !alive.get(d));
-  if (gone.length > all.length / 3) {
+  if (gone.length > checked.length / 3) {
     // that many missing means lookups aren't working here, not that the sites are gone
-    console.warn(`pakistan: ${gone.length} of ${all.length} domains didn't resolve; DNS looks unavailable, keeping all`);
+    console.warn(`pakistan: ${gone.length} of ${checked.length} domains didn't resolve; DNS looks unavailable, keeping all`);
     for (const d of gone) alive.set(d, true);
     gone = [];
   }

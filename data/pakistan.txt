@@ -1,5 +1,6 @@
 # Pakistani websites, kept by hand. Each [section] becomes one list in the page's Pakistan category.
 # One domain per line; a domain also covers its subdomains (hbl.com covers www.hbl.com).
+# A line starting with a dot is an ending, not a site: .gov.pk covers every government site.
 # The daily build drops domains that no longer exist and lists them in the Action's log.
 # "Pakistani websites (all)" is every .pk site plus every domain below.
 # To add a site: edit this file on GitHub and commit. Lines starting with # are notes.
@@ -40,8 +41,8 @@ nccpl.com.pk
 mufap.com.pk
 
 [gov] Government and education
-gov.pk
-edu.pk
+.gov.pk
+.edu.pk
 nadra.gov.pk
 fbr.gov.pk
 hec.gov.pk
@@ -83,7 +84,7 @@ ufone.com
 nayatel.com
 stormfiber.com
 wateen.com
-cybernet.pk
+cyber.net.pk
 worldcall.net.pk
 multinet.com.pk
 scom.com.pk
