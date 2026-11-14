@@ -61,6 +61,7 @@ let tab = 'services';
 let query = '';
 let uid = 1;
 let entriesCache = null;
+let shownEntries = [];   // lists on screen in the library, for Select all
 const openConditions = new Set();
 
 // ---------- state ----------
@@ -184,7 +185,7 @@ function itemLabel(item) {
     case 'url': return item.n.split('/').pop();
     default: {
       const f = index.featured.find((x) => x.site[0] === item.n);
-      return f ? f.label : SITE_LABEL[item.n] || item.n;
+      return f ? f.label : siteLabel(item.n);
     }
   }
 }
@@ -215,7 +216,31 @@ const nothingUsesVpn = () => {
 const FAVICON = (domain) => `https://www.google.com/s2/favicons?domain=${domain}&sz=64`;
 const FAVICON_2 = (domain) => `https://icons.duckduckgo.com/ip3/${domain}.ico`;
 // website lists shown under a friendlier name, and logos for lists no service covers
-const SITE_LABEL = { wikimedia: 'wikipedia' };
+const SITE_LABEL = { wikimedia: 'Wikipedia' };
+const SITE_TAG = { cn: 'China', '!cn': 'outside China', ads: 'ads', telemetry: 'telemetry' };
+const titleWords = (s) => s.split(/[-_ ]+/).filter(Boolean).map((w) => w[0].toUpperCase() + w.slice(1)).join(' ');
+/** Website list names for people: youtube -> YouTube (the service's name), google-play@cn -> Google Play (China). */
+function siteLabel(n) {
+  if (SITE_LABEL[n]) return SITE_LABEL[n];
+  const f = index.featured.find((x) => x.site.length === 1 && x.site[0] === n);
+  if (f) return f.label;
+  const [base, tag] = n.split('@');
+  const name = titleWords(base.replace(/^category-/, '').replace(/-all$/, ''));
+  return tag ? `${name} (${SITE_TAG[tag] || tag})` : name;
+}
+/** iptoasn names for people: 'WATEEN-IMS-PK-AS-AP Wateen Telecom' -> 'Wateen Telecom'. */
+function networkLabel(raw) {
+  let s = raw.trim();
+  const dash = s.indexOf(' - ');
+  if (dash > 0) s = s.slice(dash + 3);
+  else {
+    const [first, ...rest] = s.split(' ');
+    if (rest.length && /^[A-Z0-9._-]+$/.test(first) && /[a-z]/.test(rest.join(' '))) s = rest.join(' ');
+  }
+  // names written all in capitals get normal case, short words (LLC, AB) stay as they are
+  if (!/[a-z]/.test(s)) s = s.split(' ').map((w) => (w.length > 3 ? w[0] + w.slice(1).toLowerCase() : w)).join(' ');
+  return s || raw;
+}
 const SITE_DOMAIN = { wikimedia: 'wikipedia.org' };
 const BLOCK_ICON = (n) => (n.includes('ads') ? 'i-megaphone' : n.includes('malware') ? 'i-bug' : n.includes('phishing') ? 'i-hook' : n.includes('crypto') ? 'i-cpu' : 'i-shield-off');
 
@@ -279,7 +304,7 @@ function loadAsnNames() {
       const map = new Map();
       for (const line of text.split('\n')) {
         const [asn, cc, name] = line.split('\t');
-        if (asn && name) map.set(asn, { cc: cc || '', name });
+        if (asn && name) map.set(asn, { cc: cc || '', name: networkLabel(name), raw: name });
       }
       asnNames = map;
       entriesCache = null;
@@ -316,8 +341,8 @@ function allEntries() {
   services.sort((a, b) => az(a.group, b.group) || az(a.label, b.label));
   out.push(...services);
   for (const [n, src] of index.sites) {
-    const label = SITE_LABEL[n] || n;
-    out.push({ tab: 'sites', label, meta: src === 'm' ? 'MetaCubeX' : '', visual: siteDomains.has(n) ? visual({ domain: siteDomains.get(n), letter: label }) : visual({ letter: label }), items: [{ kind: 'site', n }], search: label === n ? n : `${label} ${n}` });
+    const label = siteLabel(n);
+    out.push({ tab: 'sites', label, meta: src === 'm' ? 'MetaCubeX' : '', visual: siteDomains.has(n) ? visual({ domain: siteDomains.get(n), letter: label }) : visual({ letter: label }), items: [{ kind: 'site', n }], search: `${label} ${n}` });
   }
   const countries = [...index.countries].sort((a, b) => az(countryName(a), countryName(b)));
   for (const c of countries) {
@@ -343,10 +368,10 @@ function networkMatches(q) {
   const country = !ccQuery && q.length >= 4 ? index.countries.find((c) => countryName(c).toLowerCase() === q) : null;
   const pinned = new Set(index.asnGroups.flatMap((g) => g.items.map((a) => String(a.asn))));
   const out = [];
-  for (const [asn, { cc, name }] of asnNames) {
+  for (const [asn, { cc, name, raw }] of asnNames) {
     if (pinned.has(asn)) continue;
     const hit = /^\d+$/.test(qNum) ? asn.startsWith(qNum)
-      : (ccQuery && cc === ccQuery) || (country && cc === country.toUpperCase()) || name.toLowerCase().includes(q);
+      : (ccQuery && cc === ccQuery) || (country && cc === country.toUpperCase()) || `${name} ${raw}`.toLowerCase().includes(q);
     if (!hit) continue;
     out.push({ tab: 'asn', group: cc ? countryName(cc) : 'Other', visual: cc ? visual({ flag: cc.toLowerCase() }) : '', label: name, meta: `AS${asn}`, items: [{ kind: 'asn', n: asn, label: name, cc }], search: '' });
     if (out.length >= 200) break;
@@ -428,12 +453,17 @@ function renderLibrary() {
   if (tab === 'sites' && !q) {
     list.insertAdjacentHTML('beforeend', `<p class="list-hint">Search ${fmtCount(index.counts.sites)} websites by name, e.g. “youtube”, “netflix”, “github”.</p>`);
   }
+  shownEntries = entries.slice(0, LIST_LIMIT);
+  const picked = picksInCategory([...state.picks, ...state.blocked], tab).length;
+  $('#selectAll').disabled = !shownEntries.length || shownEntries.every((e) => isPicked(e.items));
+  $('#clearCat').disabled = !picked;
+  $('#pickedHere').textContent = picked ? `${fmtCount(picked)} picked here` : '';
   if (!entries.length && !isAsnQuery) {
     list.insertAdjacentHTML('beforeend', `<div class="empty"><b>No ${escapeHtml(TABS.find((t) => t[0] === tab)[1].toLowerCase())} match “${escapeHtml(query)}”</b>Try another name, or another category above.</div>`);
     return;
   }
   let lastGroup = null;
-  for (const e of entries.slice(0, LIST_LIMIT)) {
+  for (const e of shownEntries) {
     const group = tab === 'sites' && !q ? 'Popular websites' : e.group || (tab === 'asn' ? 'Other networks' : '');
     if (group && group !== lastGroup) {
       list.insertAdjacentHTML('beforeend', `<div class="group-title">${escapeHtml(group)}</div>`);
@@ -518,6 +548,38 @@ const POPULAR_SITES = ['youtube', 'google', 'facebook', 'instagram', 'whatsapp',
 
 const CATEGORY_ORDER = [['services', 'Services'], ['countries', 'Countries'], ['sites', 'Websites'], ['asn', 'Networks'], ['block', 'AdBlock'], ['url', 'Other']];
 const KIND_CATEGORY = { service: 'services', country: 'countries', site: 'sites', asn: 'asn', block: 'block', url: 'url' };
+
+/** Picked items of a category, for its count and Clear (a whole popular service counts as Services). */
+function picksInCategory(items, cat) {
+  const keys = new Set(items.map(itemKey));
+  const used = new Set();
+  for (const f of index.featured) {
+    const fi = featuredItems(f);
+    if (fi.every((i) => keys.has(itemKey(i)) && !used.has(itemKey(i)))) fi.forEach((i) => used.add(itemKey(i)));
+  }
+  // a website list stays a Websites pick even when it also completes a service
+  if (cat === 'sites') return items.filter((i) => i.kind === 'site');
+  return items.filter((i) => (used.has(itemKey(i)) ? 'services' : KIND_CATEGORY[i.kind] || 'url') === cat);
+}
+
+/** Select all: ticks every list shown in the category (search results when searching). */
+function selectShown() {
+  for (const e of shownEntries) {
+    const bucket = bucketFor(e.items);
+    if (!bucket) continue;
+    for (const item of e.items) if (!bucket.some((x) => itemKey(x) === itemKey(item))) bucket.push(item);
+  }
+  render();
+}
+
+/** Clear: unticks everything picked in the selected category. */
+function clearCategory() {
+  for (const key of ['picks', 'blocked']) {
+    const gone = new Set(picksInCategory(state[key], tab).map(itemKey));
+    state[key] = state[key].filter((i) => !gone.has(itemKey(i)));
+  }
+  render();
+}
 
 /** Picks as a list grouped by category; a popular service picked whole counts as one Services row. */
 function groupedList(items, remove, lead, flat = false) {
@@ -655,8 +717,8 @@ function renderMode() {
     b.tabIndex = on ? 0 : -1;
   }
   const box = state.mode === 'exclude'
-    ? `${icon('i-direct')}<span><b>Picked items skip the VPN</b> · everything else uses it</span>`
-    : `${icon('i-vpn')}<span><b>Picked items use the VPN</b> · everything else goes direct</span>`;
+    ? `${icon('i-direct')}<span><b>Picked items skip the VPN</b></span>`
+    : `${icon('i-vpn')}<span><b>Picked items use the VPN</b></span>`;
   $('#modeBox').innerHTML = box;
   $('#modeBox').title = MODES[state.mode].desc;
 }
@@ -1099,9 +1161,10 @@ async function start() {
     openConditions.clear();
     render();
   };
-  $('#addHiddify').onclick = () => { location.href = toImportLink(toBuilderState()); };
 
   $('#download').onclick = download;
+  $('#selectAll').onclick = selectShown;
+  $('#clearCat').onclick = clearCategory;
   $('#sourcesBtn').onclick = () => $('#sourcesDialog').showModal();
   $('#loadFile').onchange = (e) => { if (e.target.files[0]) loadFile(e.target.files[0]); e.target.value = ''; };
   document.addEventListener('click', (e) => {
