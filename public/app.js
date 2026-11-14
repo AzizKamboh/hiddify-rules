@@ -12,10 +12,10 @@ const LIST_LIMIT = 250;
 
 const KIND_LABEL = { site: 'sites', country: 'country IPs', service: 'service IPs', asn: 'network', block: 'block list', url: 'custom' };
 const OUT = {
-  proxy: { label: 'VPN', icon: 'i-vpn' },
-  direct: { label: 'Direct', icon: 'i-direct' },
-  direct_with_fragment: { label: 'Direct + fragment', icon: 'i-fragment' },
-  block: { label: 'Block', icon: 'i-block' },
+  proxy: { label: 'VPN', icon: 'i-vpn', plain: 'through the VPN' },
+  direct: { label: 'Direct', icon: 'i-direct', plain: 'direct via your ISP' },
+  direct_with_fragment: { label: 'Direct + fragment', icon: 'i-fragment', plain: 'direct, with fragmented TLS' },
+  block: { label: 'Block', icon: 'i-block', plain: 'blocked' },
 };
 const EXTRA_FIELDS = [
   ['domainSuffixes', 'Domain suffixes', 'youtube.com\n.pk'],
@@ -34,9 +34,10 @@ const BUILTIN_INFO = {
   bypassRegion: ['Bypass region', 'Sites and IPs of the region set in Hiddify', 'direct'],
 };
 const TABS = [
-  ['featured', 'Popular', 'i-star'], ['sites', 'Sites', 'i-globe'], ['countries', 'Countries', 'i-flag'],
-  ['services', 'Service IPs', 'i-server'], ['asn', 'Networks', 'i-network'], ['block', 'Block lists', 'i-shield-off'],
+  ['services', 'Services', 'i-star'], ['sites', 'Sites', 'i-globe'], ['countries', 'Countries', 'i-flag'],
+  ['asn', 'Networks', 'i-network'], ['block', 'Block lists', 'i-shield-off'],
 ];
+const IP_GROUP = 'IP ranges';
 
 const icon = (id, cls = 'ic') => `<svg class="${cls}" aria-hidden="true"><use href="#${id}"/></svg>`;
 const regionNames = (() => { try { return new Intl.DisplayNames(['en'], { type: 'region' }); } catch { return null; } })();
@@ -48,7 +49,7 @@ let index = null;
 let asnList = null;      // every MetaCubeX ASN, loaded on first use
 let siteSource = new Map();
 let state = null;
-let tab = 'featured';
+let tab = 'services';
 let query = '';
 let uid = 1;
 let entriesCache = null;
@@ -166,7 +167,6 @@ async function applyPreset(id) {
     const group = index.asnGroups.find((g) => g.group === p.asnGroup);
     for (const a of group?.items || []) rule.items.push({ kind: 'asn', n: String(a.asn) });
     for (const [key] of EXTRA_FIELDS) if (p[key]) rule[key] = [...p[key]];
-    if (EXTRA_FIELDS.some(([k]) => p[k])) openConditions.add(rule.id);
     return rule;
   });
   if (!rules.length) rules.push(emptyRule());
@@ -191,8 +191,9 @@ function describeFeatured(f) {
 
 function allEntries() {
   const out = [];
+  const services = [];
   for (const f of index.featured) {
-    out.push({ tab: 'featured', group: f.group, label: f.label, meta: describeFeatured(f), items: featuredItems(f), search: `${f.label} ${f.id} ${f.site.join(' ')}` });
+    services.push({ tab: 'services', group: f.group, label: f.label, meta: describeFeatured(f), items: featuredItems(f), search: `${f.label} ${f.id} ${f.site.join(' ')}` });
   }
   for (const [n, src] of index.sites) {
     out.push({ tab: 'sites', label: n, mono: true, meta: src === 'm' ? 'MetaCubeX' : '', items: [{ kind: 'site', n }], search: n });
@@ -201,8 +202,11 @@ function allEntries() {
     out.push({ tab: 'countries', label: countryName(c), meta: c.toUpperCase(), items: [{ kind: 'country', n: c }], search: `${countryName(c)} ${c}` });
   }
   for (const s of index.services) {
-    out.push({ tab: 'services', label: s, mono: true, meta: 'IP ranges', items: [{ kind: 'service', n: s }], search: s });
+    services.push({ tab: 'services', group: IP_GROUP, label: `${s}`, mono: true, meta: 'IP ranges only', items: [{ kind: 'service', n: s }], search: `${s} ip` });
   }
+  const az = (a, b) => a.localeCompare(b, 'en', { sensitivity: 'base' });
+  services.sort((a, b) => az(a.group, b.group) || az(a.label, b.label));
+  out.unshift(...services);
   for (const g of index.asnGroups) {
     for (const a of g.items) out.push({ tab: 'asn', group: g.group, label: `AS${a.asn}`, mono: true, meta: a.label, items: [{ kind: 'asn', n: String(a.asn) }], search: `as${a.asn} ${a.asn} ${a.label}` });
   }
@@ -213,7 +217,7 @@ function allEntries() {
 }
 
 function renderTabs() {
-  const counts = { featured: index.featured.length, sites: index.counts.sites, countries: index.counts.countries, services: index.counts.services, asn: index.counts.asns, block: index.counts.block };
+  const counts = { services: index.featured.length + index.counts.services, sites: index.counts.sites, countries: index.counts.countries, asn: index.counts.asns, block: index.counts.block };
   const el = $('#tabs');
   const focused = document.activeElement?.closest?.('#tabs') ? document.activeElement.dataset.tab : null;
   el.innerHTML = '';
@@ -224,7 +228,7 @@ function renderTabs() {
     b.setAttribute('role', 'tab');
     const selected = tab === id && !query;
     b.setAttribute('aria-selected', String(selected));
-    b.tabIndex = (query ? id === 'featured' : selected) ? 0 : -1;
+    b.tabIndex = (query ? id === 'services' : selected) ? 0 : -1;
     b.dataset.tab = id;
     b.innerHTML = `${icon(ic)}${label}<span class="count">${fmtCount(counts[id])}</span>`;
     b.onclick = () => { tab = id; query = ''; $('#search').value = ''; renderLibrary(); };
@@ -258,7 +262,8 @@ function renderLibrary() {
   if (q) {
     const score = (e) => (e.label.toLowerCase() === q ? 0 : e.label.toLowerCase().startsWith(q) ? 1 : 2);
     const tabOrder = (e) => TABS.findIndex((t) => t[0] === e.tab);
-    entries = entries.sort((a, b) => tabOrder(a) - tabOrder(b) || score(a) - score(b));
+    const ipOnly = (e) => (e.group === IP_GROUP ? 1 : 0);
+    entries = entries.sort((a, b) => tabOrder(a) - tabOrder(b) || score(a) - score(b) || ipOnly(a) - ipOnly(b));
   }
   const list = $('#list');
   const scroll = list.scrollTop;
@@ -297,7 +302,7 @@ function entryButton(e, rule) {
     + (others.length ? `<span class="elsewhere" title="Already in rule ${ruleNumber(others[0])}: ${escapeHtml(others[0].name)}"><span class="step-num">${ruleNumber(others[0])}</span>${escapeHtml(others[0].name)}</span>` : '')
     + (e.meta ? `<span class="meta">${escapeHtml(e.meta)}</span>` : '');
   if (rule) b.title = on ? `Remove from “${rule.name}”` : `Add to “${rule.name}”`;
-  b.onclick = () => toggleItems(e.items, !on);
+  b.onclick = () => toggleItems(e.items, !on, e.tab === 'countries' ? `${e.label} (${e.meta})` : e.label);
   return b;
 }
 
@@ -316,15 +321,14 @@ function asnAdder(prefill) {
       return toast("Couldn't load the network list", 'err');
     }
     if (!asnList.has(n)) return toast(`AS${n} has no list in MetaCubeX`, 'err');
-    toggleItems([{ kind: 'asn', n }], true);
-    toast(`AS${n} added`, 'ok');
+    toggleItems([{ kind: 'asn', n }], true, `AS${n}`);
   };
   $('button', wrap).onclick = add;
   input.onkeydown = (ev) => { if (ev.key === 'Enter') add(); };
   return wrap;
 }
 
-function toggleItems(items, add) {
+function toggleItems(items, add, label) {
   const rule = activeRule();
   if (!rule) return toast('Add a rule first', 'err');
   for (const item of items) {
@@ -333,6 +337,27 @@ function toggleItems(items, add) {
     if (add) rule.items.push(item);
   }
   render();
+  const name = label || itemLabel(items[0]);
+  const where = OUT[rule.outbound].plain;
+  toast(add ? `${name} → ${where}` : `${name} removed from “${rule.name || 'Untitled rule'}”`, add ? 'ok' : '');
+  flashRule(rule.id);
+  flashPlan(rule.id);
+}
+
+function flashRule(id) {
+  const li = $(`#ruleList .rule[data-id="${id}"]`);
+  if (!li) return;
+  li.classList.remove('flash');
+  void li.offsetWidth;
+  li.classList.add('flash');
+}
+
+function flashPlan(id) {
+  const row = $(`#plan [data-rule="${id}"]`);
+  if (!row) return;
+  row.classList.remove('flash');
+  void row.offsetWidth;
+  row.classList.add('flash');
 }
 
 // ---------- rules ----------
@@ -348,12 +373,13 @@ function renderBuiltins() {
     .map((k) => `<span class="${state.builtins[k] ? 'on' : ''}">${short[k]} ${state.builtins[k] ? 'on' : 'off'}</span>`)
     .join(' · ');
   const el = $('#builtins');
-  el.innerHTML = '<p class="managed-note">Hiddify fills these in itself — Windows and Android differ — and checks them before your rules. The file only switches them on or off.</p>';
+  el.innerHTML = '';
   for (const key of keys) {
     const [name, desc, out] = BUILTIN_INFO[key];
     const row = document.createElement('div');
     row.className = 'builtin';
-    row.innerHTML = `<div class="builtin-text"><span class="builtin-name">${name}</span><span class="builtin-desc">${desc}</span></div>
+    row.title = desc;
+    row.innerHTML = `<div class="builtin-text"><span class="builtin-name">${name}</span></div>
       ${outBadge(out)}
       <label class="switch"><input type="checkbox" role="switch" data-fk="b:${key}" aria-label="${name}"><span class="track"></span></label>`;
     const box = $('input', row);
@@ -363,7 +389,8 @@ function renderBuiltins() {
   }
   const region = document.createElement('label');
   region.className = 'region';
-  region.innerHTML = '<input type="checkbox" data-fk="b:region"><span>A region is selected in Hiddify (Iran, China, Russia…). Leave this off if Hiddify’s region is <b>Other</b> — Pakistan isn’t one of its regions.</span>';
+  region.title = 'Tick only if Hiddify’s Region setting is Iran, China, Russia, Afghanistan, Indonesia, Turkey or Brazil. Pakistan isn’t one of its regions, so leave it off when the region is Other.';
+  region.innerHTML = '<input type="checkbox" data-fk="b:region"><span>A region is set in Hiddify (not “Other”)</span>';
   const rbox = $('input', region);
   rbox.checked = Boolean(state.regionSet);
   rbox.onchange = () => { state.regionSet = rbox.checked; render(); };
@@ -398,14 +425,14 @@ function ruleCard(rule, i) {
     <div class="rule-main">
       <div class="chips"></div>
       <details class="conditions">
-        <summary data-fk="${rule.id}:cond">${icon('i-sliders')}Domains, IPs, ports and apps</summary>
+        <summary data-fk="${rule.id}:cond">${icon('i-sliders')}More conditions</summary>
         <div class="cond-grid"></div>
       </details>
     </div>`;
 
   const name = $('.rule-name', li);
   name.value = rule.name;
-  name.oninput = () => { rule.name = name.value; renderLibrary(); renderOutput(); save(); };
+  name.oninput = () => { rule.name = name.value; renderTarget(); renderOutput(); save(); };
   const sel = $('select', li);
   sel.onchange = () => { rule.outbound = sel.value; render(); };
   const on = $('.switch input', li);
@@ -420,8 +447,8 @@ function ruleCard(rule, i) {
     const p = document.createElement('p');
     p.className = 'rule-empty';
     p.innerHTML = rule.id === state.active
-      ? 'No lists yet — pick some from the library.'
-      : `No lists yet. <button type="button" class="linkbtn" data-fk="${rule.id}:pick">Add lists to this rule</button>`;
+      ? 'Empty — tick lists on the left to add them here.'
+      : `Empty. <button type="button" class="linkbtn" data-fk="${rule.id}:pick">Add lists to this rule</button>`;
     chips.replaceWith(p);
     const pick = $('.linkbtn', p);
     if (pick) pick.onclick = () => { setActive(rule.id); setView('library'); };
@@ -523,9 +550,62 @@ function renderFallback() {
     b.setAttribute('aria-checked', String(on));
     b.tabIndex = on ? 0 : -1;
   }
-  $('#fallbackNote').textContent = state.fallback === 'direct'
+  $('#fallbackInfo').title = state.fallback === 'direct'
     ? 'Traffic no rule matched connects directly through your ISP. Two catch-all rules are added at the end for this, since Hiddify can’t set its default to Direct.'
-    : 'Traffic no rule matched goes through the VPN — Hiddify’s default.';
+    : 'Traffic no rule matched goes through the VPN (Hiddify’s default).';
+}
+
+// ---------- what will happen ----------
+
+/** Names for a rule's lists in plain words: a whole popular service shows as its name. */
+function friendlyNames(rule) {
+  const keys = new Set(rule.items.map(itemKey));
+  const used = new Set();
+  const names = [];
+  for (const f of index.featured) {
+    const fk = featuredItems(f).map(itemKey);
+    if (fk.every((k) => keys.has(k) && !used.has(k))) {
+      fk.forEach((k) => used.add(k));
+      names.push(f.label);
+    }
+  }
+  for (const item of rule.items) if (!used.has(itemKey(item))) names.push(itemLabel(item));
+  const extras = EXTRA_FIELDS.filter(([k]) => rule[k]?.length).map(([k, label]) => `${label.toLowerCase()} (${rule[k].length})`);
+  return [...names, ...extras];
+}
+
+function planRow({ out, text, sub, ruleId, muted }) {
+  const li = document.createElement('li');
+  li.className = `plan-row${muted ? ' muted-row' : ''}`;
+  if (ruleId) li.dataset.rule = ruleId;
+  li.innerHTML = `<span class="plan-what">${text}${sub ? `<span class="plan-sub">${sub}</span>` : ''}</span><span class="plan-arrow">→</span>${outBadge(out)}`;
+  return li;
+}
+
+function renderPlan() {
+  const el = $('#plan');
+  el.innerHTML = '';
+  const fmt = (names) => {
+    const shown = names.slice(0, 3).map((n) => `<b>${escapeHtml(n)}</b>`);
+    return shown.join(', ') + (names.length > 3 ? ` <span class="plan-more">+${names.length - 3} more</span>` : '');
+  };
+  if (state.builtins.bypassLan) el.append(planRow({ out: 'direct', text: 'Your local network', muted: true }));
+  if (state.builtins.systemDirect) el.append(planRow({ out: 'direct', text: 'System services', sub: 'Microsoft on Windows, Google on Android', muted: true }));
+  if (state.builtins.blockAds) el.append(planRow({ out: 'block', text: 'Ads, malware and phishing', muted: true }));
+  if (state.regionSet && state.builtins.bypassRegion) el.append(planRow({ out: 'direct', text: 'Your Hiddify region', muted: true }));
+  let any = false;
+  for (const rule of state.rules) {
+    if (!rule.enabled || !ruleHasContent(rule)) continue;
+    any = true;
+    el.append(planRow({ out: rule.outbound, text: fmt(friendlyNames(rule)), ruleId: rule.id }));
+  }
+  if (!any) {
+    const li = document.createElement('li');
+    li.className = 'plan-empty';
+    li.textContent = 'Nothing picked yet. Tick services on the left to choose what goes through the VPN.';
+    el.append(li);
+  }
+  el.append(planRow({ out: state.fallback, text: '<b>Everything else</b>' }));
 }
 
 // ---------- output ----------
@@ -533,9 +613,7 @@ function renderFallback() {
 function renderOutput() {
   const built = toBuilderState();
   const started = state.rules.some(ruleHasContent);
-  const notes = started ? lint(built) : [];
-  if (started && state.rules.some((r) => r.enabled && r.items.some((i) => i.kind === 'asn' && !index.mirroredAsns.includes(Number(i.n)))))
-    notes.unshift({ level: 'info', text: 'Networks outside the popular list link straight to MetaCubeX; Hiddify also uses them in DNS rules, which is harmless but a little slower.' });
+  const notes = started ? lint(built).filter((n) => n.level === 'warn') : [];
   if (started && state.fallback === 'direct' && !state.rules.some((r) => r.enabled && r.outbound === 'proxy' && hasCondition({ ...r, ruleSets: r.items.map(itemUrl) })))
     notes.unshift({ level: 'warn', text: 'No rule sends anything through the VPN, so all traffic would connect directly.' });
   $('#notes').innerHTML = notes.map((n) => `<div class="note ${n.level}">${icon(n.level === 'warn' ? 'i-alert' : 'i-info')}<span>${escapeHtml(n.text)}</span></div>`).join('');
@@ -589,6 +667,7 @@ function render(focusKey) {
   renderRules();
   renderFallback();
   renderLibrary();
+  renderPlan();
   renderOutput();
   save();
   if (fk) {
@@ -635,7 +714,6 @@ async function loadFile(file) {
     rule.enabled = r.enabled;
     rule.items = (r.ruleSets || []).map(urlToItem);
     for (const [key] of EXTRA_FIELDS) rule[key] = r[key] || [];
-    if (extraCount(rule)) openConditions.add(rule.id);
     return rule;
   });
   if (!rules.length) rules.push(emptyRule());
@@ -829,6 +907,7 @@ async function start() {
   $('#copyLink').onclick = () => copyText(toImportLink(toBuilderState()), 'Import link copied — in Hiddify use ⋮ → Import from clipboard');
   $('#openHiddify').addEventListener('click', () => toast('Opening Hiddify… If nothing happens, download the file instead.'));
   $('#copyJson').onclick = () => copyText(toJsonFile(toBuilderState()), 'JSON copied');
+  for (const t of $$('.tip')) t.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); toast(t.title || $('#fallbackInfo').title); });
   $('#previewBtn').onclick = openPreview;
   $('#howtoBtn').onclick = () => $('#howtoDialog').showModal();
   $('#sourcesBtn').onclick = () => $('#sourcesDialog').showModal();
