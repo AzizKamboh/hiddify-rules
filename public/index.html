@@ -2,110 +2,226 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Hiddify Rules Builder</title>
-  <meta name="description" content="Build Hiddify route_rules.json from daily-synced SagerNet and MetaCubeX rule sets.">
+  <meta name="description" content="Decide what goes through your VPN, what connects directly and what gets blocked, then import the rules into Hiddify.">
+  <meta name="color-scheme" content="light dark">
+  <script>
+    // apply the saved theme before first paint
+    (function () {
+      var pref = 'system';
+      try { pref = localStorage.getItem('hiddify-rules-builder:theme') || 'system'; } catch (e) {}
+      var dark = pref === 'dark' || (pref === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+      document.documentElement.dataset.themePref = pref;
+    })();
+  </script>
   <link rel="stylesheet" href="style.css">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%233b6ef5'/><path d='M8 22l6-12 4 8 3-5 3 9' stroke='white' stroke-width='2.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%232f5bd3'/%3E%3Cpath d='M9.5 9.5h9a3.75 3.75 0 0 1 0 7.5h-5a3.75 3.75 0 0 0 0 7.5h9' stroke='white' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='9.5' cy='9.5' r='2.4' fill='white'/%3E%3Ccircle cx='22.5' cy='24.5' r='2.4' fill='white'/%3E%3C/svg%3E">
 </head>
-<body>
-  <header class="top">
-    <div class="brand">
-      <h1>Hiddify Rules Builder</h1>
-      <p class="sub">Pick what goes through the VPN, what goes direct and what gets blocked, then import the result into Hiddify.</p>
-    </div>
-    <div class="top-actions">
-      <label class="preset">
-        <span>Start from</span>
-        <select id="preset"><option value="">Choose a preset…</option></select>
+<body data-view="library">
+  <svg class="sprite" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+      <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
+      <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5Z"/></symbol>
+      <symbol id="i-monitor" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></symbol>
+      <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 15V4M7 9l5-5 5 5"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></symbol>
+      <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></symbol>
+      <symbol id="i-reset" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></symbol>
+      <symbol id="i-external" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9"/><path d="M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4"/></symbol>
+      <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h8"/></symbol>
+      <symbol id="i-code" viewBox="0 0 24 24"><path d="m8 7-5 5 5 5M16 7l5 5-5 5"/></symbol>
+      <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6v.6M12 17.5h.01"/></symbol>
+      <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5h.01"/></symbol>
+      <symbol id="i-alert" viewBox="0 0 24 24"><path d="M10.3 4.3 2.6 18a2 2 0 0 0 1.7 3h15.4a2 2 0 0 0 1.7-3L13.7 4.3a2 2 0 0 0-3.4 0Z"/><path d="M12 10v4M12 17.5h.01"/></symbol>
+      <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
+      <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+      <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+      <symbol id="i-up" viewBox="0 0 24 24"><path d="m6 15 6-6 6 6"/></symbol>
+      <symbol id="i-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+      <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol>
+      <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6"/><path d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></symbol>
+      <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></symbol>
+      <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></symbol>
+      <symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/></symbol>
+      <!-- outbounds -->
+      <symbol id="i-vpn" viewBox="0 0 24 24"><path d="M12 3 5 6v5c0 4.5 3 8.3 7 10 4-1.7 7-5.5 7-10V6l-7-3Z"/><path d="m9 12 2 2 4-4"/></symbol>
+      <symbol id="i-direct" viewBox="0 0 24 24"><path d="M4 12h14M13 6l6 6-6 6"/></symbol>
+      <symbol id="i-fragment" viewBox="0 0 24 24"><path d="M4 12h3M10 12h3M16 12h2M14 6l6 6-6 6"/></symbol>
+      <symbol id="i-block" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="m6 6 12 12"/></symbol>
+      <!-- library tabs -->
+      <symbol id="i-star" viewBox="0 0 24 24"><path d="m12 3.5 2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9L12 3.5Z"/></symbol>
+      <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3Z"/></symbol>
+      <symbol id="i-flag" viewBox="0 0 24 24"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></symbol>
+      <symbol id="i-server" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="7" rx="1.5"/><rect x="4" y="13" width="16" height="7" rx="1.5"/><path d="M8 7.5h.01M8 16.5h.01"/></symbol>
+      <symbol id="i-network" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="5" rx="1"/><rect x="3" y="16" width="6" height="5" rx="1"/><rect x="15" y="16" width="6" height="5" rx="1"/><path d="M12 8v4M6 16v-2h12v2"/></symbol>
+      <symbol id="i-shield-off" viewBox="0 0 24 24"><path d="M12 3 5 6v5c0 4.5 3 8.3 7 10 4-1.7 7-5.5 7-10V6l-7-3Z"/><path d="m9.5 9.5 5 5M14.5 9.5l-5 5"/></symbol>
+      <symbol id="i-layers" viewBox="0 0 24 24"><path d="m12 3 9 5-9 5-9-5 9-5Z"/><path d="m3 13 9 5 9-5"/></symbol>
+      <symbol id="i-list" viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01"/></symbol>
+    </defs>
+  </svg>
+
+  <header class="appbar">
+    <a class="brand" href="./" aria-label="Hiddify Rules Builder, home">
+      <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8"/><path d="M9.5 9.5h9a3.75 3.75 0 0 1 0 7.5h-5a3.75 3.75 0 0 0 0 7.5h9"/><circle cx="9.5" cy="9.5" r="2.4"/><circle cx="22.5" cy="24.5" r="2.4"/></svg>
+      <span class="brand-text">
+        <span class="brand-name">Hiddify Rules Builder</span>
+        <span class="brand-tag">Routing workspace</span>
+      </span>
+    </a>
+
+    <div class="appbar-actions">
+      <label class="field-inline">
+        <span class="sr-only">Start from a preset</span>
+        <select id="preset" class="select select-sm"><option value="">Start from a preset…</option></select>
       </label>
-      <label class="btn ghost" title="Load a route_rules.json exported from Hiddify or from this page">
-        Load my rules
-        <input type="file" id="loadFile" accept=".json,application/json" hidden>
+      <label class="btn btn-ghost btn-sm" title="Load a route_rules.json exported from Hiddify or from this page">
+        <svg class="ic"><use href="#i-upload"/></svg><span class="hide-sm">Load rules</span>
+        <input type="file" id="loadFile" accept=".json,application/json" class="sr-only">
       </label>
-      <button class="btn ghost" id="reset" type="button">Reset</button>
+      <button class="btn btn-ghost btn-sm" id="reset" type="button" title="Start over">
+        <svg class="ic"><use href="#i-reset"/></svg><span class="hide-sm">Reset</span>
+      </button>
+      <div class="theme-switch" role="radiogroup" aria-label="Theme">
+        <button type="button" role="radio" data-theme-pref="light" title="Light"><svg class="ic"><use href="#i-sun"/></svg><span class="sr-only">Light</span></button>
+        <button type="button" role="radio" data-theme-pref="dark" title="Dark"><svg class="ic"><use href="#i-moon"/></svg><span class="sr-only">Dark</span></button>
+        <button type="button" role="radio" data-theme-pref="system" title="Match system"><svg class="ic"><use href="#i-monitor"/></svg><span class="sr-only">System</span></button>
+      </div>
     </div>
   </header>
 
-  <main class="layout">
-    <section class="panel picker" aria-label="Rule lists">
-      <div class="picker-head">
-        <div class="active-target" id="activeTarget"></div>
-        <input type="search" id="search" placeholder="Search lists… (e.g. telegram, pk, AS17557)" autocomplete="off">
-        <nav class="tabs" id="tabs" role="tablist"></nav>
+  <section class="intro">
+    <h1>Take control of your traffic.</h1>
+    <p>Decide what goes through your VPN, what connects directly, and what gets blocked — then import it into Hiddify.</p>
+  </section>
+
+  <nav class="viewswitch" aria-label="Workspace">
+    <button type="button" data-view="library"><svg class="ic"><use href="#i-layers"/></svg>Lists</button>
+    <button type="button" data-view="rules"><svg class="ic"><use href="#i-list"/></svg>My rules <span class="count" id="ruleCount"></span></button>
+  </nav>
+
+  <main class="workspace">
+    <section class="pane library" aria-labelledby="libTitle">
+      <div class="pane-head">
+        <div class="pane-title-row">
+          <h2 id="libTitle" class="pane-title">Rule library</h2>
+          <span class="pane-sub" id="libCounts"></span>
+        </div>
+        <div class="target" id="activeTarget" aria-live="polite"></div>
+        <label class="search">
+          <svg class="ic"><use href="#i-search"/></svg>
+          <span class="sr-only">Search lists</span>
+          <input type="search" id="search" placeholder="Search lists — telegram, pk, AS17557…" autocomplete="off" spellcheck="false">
+          <kbd class="hide-sm">/</kbd>
+        </label>
+        <div class="tabs" id="tabs" role="tablist" aria-label="List categories"></div>
       </div>
-      <div class="list" id="list" role="listbox" aria-label="Available lists"></div>
+      <div class="list" id="list" role="tabpanel" aria-labelledby="libTitle"></div>
+      <div class="pane-foot">
+        <span class="sync" id="syncLine"></span>
+        <button type="button" class="btn btn-ghost btn-xs" id="sourcesBtn"><svg class="ic"><use href="#i-info"/></svg>Sources</button>
+      </div>
     </section>
 
-    <section class="panel rules" aria-label="Your rules">
-      <div class="section-title">
-        <h2>Your rules</h2>
-        <span class="hint">Checked from top to bottom; the first match wins.</span>
-      </div>
-
-      <div class="builtins" id="builtins"></div>
-      <div id="ruleList"></div>
-      <button class="btn add" id="addRule" type="button">+ Add rule</button>
-
-      <div class="fallback">
-        <h3>Everything else</h3>
-        <label class="radio"><input type="radio" name="fallback" value="direct"> <span><b>Direct</b> through my ISP</span></label>
-        <label class="radio"><input type="radio" name="fallback" value="proxy"> <span><b>Through the VPN</b> (Hiddify's default)</span></label>
-        <p class="note" id="fallbackNote"></p>
-      </div>
-
-      <div class="output">
-        <div class="notes" id="notes"></div>
-        <div class="out-actions">
-          <button class="btn primary" id="download" type="button">Download route_rules.json</button>
-          <a class="btn" id="openHiddify" href="#">Open in Hiddify</a>
-          <button class="btn" id="copyLink" type="button">Copy import link</button>
+    <section class="pane rules" aria-labelledby="rulesTitle">
+      <div class="pane-head">
+        <div class="pane-title-row">
+          <h2 id="rulesTitle" class="pane-title">Your rules</h2>
+          <span class="pane-sub">Checked top to bottom — the first match wins</span>
         </div>
-        <details class="howto">
-          <summary>How to import</summary>
-          <ol>
-            <li><b>File:</b> Hiddify → Settings → Routing → <b>⋮</b> → import from file → choose <code>route_rules.json</code>.</li>
-            <li><b>Link:</b> click <b>Open in Hiddify</b>, or copy the link and use <b>⋮ → import from clipboard</b>. Hiddify asks before replacing your rules.</li>
-            <li>Reconnect from the Home page so the new rules load.</li>
-          </ol>
-          <p>Importing replaces all your routing rules. Hiddify's built-in rules keep their own content (it differs between Windows and Android); only their on/off switch comes from here.</p>
+      </div>
+
+      <div class="rules-body" id="rulesBody">
+        <details class="managed" id="managed">
+          <summary>
+            <svg class="ic"><use href="#i-lock"/></svg>
+            <span class="managed-title">Managed by Hiddify</span>
+            <span class="managed-summary" id="managedSummary"></span>
+            <svg class="ic chev"><use href="#i-chevron"/></svg>
+          </summary>
+          <div class="managed-body" id="builtins"></div>
         </details>
-        <details>
-          <summary>Preview JSON</summary>
-          <pre id="preview"></pre>
-        </details>
+
+        <ol class="rule-list" id="ruleList"></ol>
+        <button class="btn btn-dashed" id="addRule" type="button"><svg class="ic"><use href="#i-plus"/></svg>Add rule</button>
+
+        <section class="fallback" aria-labelledby="fallbackTitle">
+          <div class="fallback-head">
+            <span class="step-num" aria-hidden="true">∞</span>
+            <div>
+              <h3 id="fallbackTitle">Everything else</h3>
+              <p class="muted" id="fallbackNote"></p>
+            </div>
+          </div>
+          <div class="segmented" role="radiogroup" aria-labelledby="fallbackTitle" id="fallback">
+            <button type="button" role="radio" data-value="direct"><svg class="ic"><use href="#i-direct"/></svg>Direct via my ISP</button>
+            <button type="button" role="radio" data-value="proxy"><svg class="ic"><use href="#i-vpn"/></svg>Through the VPN</button>
+          </div>
+        </section>
+      </div>
+
+      <div class="exportbar">
+        <div class="notes" id="notes" aria-live="polite"></div>
+        <div class="export-actions">
+          <button class="btn btn-primary" id="download" type="button"><svg class="ic"><use href="#i-download"/></svg>Download route_rules.json</button>
+          <a class="btn btn-secondary" id="openHiddify" href="#"><svg class="ic"><use href="#i-external"/></svg>Open in Hiddify</a>
+          <button class="btn btn-secondary" id="copyLink" type="button"><svg class="ic"><use href="#i-copy"/></svg><span>Copy link</span></button>
+          <span class="spacer"></span>
+          <button class="btn btn-icon" id="previewBtn" type="button" title="Preview JSON" aria-label="Preview JSON"><svg class="ic"><use href="#i-code"/></svg></button>
+          <button class="btn btn-icon" id="howtoBtn" type="button" title="How to import" aria-label="How to import"><svg class="ic"><use href="#i-help"/></svg></button>
+        </div>
+        <p class="replace-note"><svg class="ic"><use href="#i-info"/></svg>Importing replaces all routing rules in Hiddify. Reconnect afterwards.</p>
       </div>
     </section>
   </main>
 
-  <footer class="foot" id="foot"></footer>
-  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <dialog class="dialog dialog-wide" id="previewDialog" aria-labelledby="previewTitle">
+    <header class="dialog-head">
+      <h2 id="previewTitle">route_rules.json</h2>
+      <button type="button" class="btn btn-icon" data-close aria-label="Close"><svg class="ic"><use href="#i-x"/></svg></button>
+    </header>
+    <pre class="code" id="preview" tabindex="0"></pre>
+    <footer class="dialog-foot">
+      <span class="muted" id="previewMeta"></span>
+      <button type="button" class="btn btn-secondary" id="copyJson"><svg class="ic"><use href="#i-copy"/></svg>Copy JSON</button>
+    </footer>
+  </dialog>
 
-  <template id="ruleTpl">
-    <article class="rule">
-      <div class="rule-head">
-        <input class="rule-name" aria-label="Rule name">
-        <select class="rule-out" aria-label="Send to">
-          <option value="proxy">VPN</option>
-          <option value="direct">Direct</option>
-          <option value="direct_with_fragment">Direct + fragment</option>
-          <option value="block">Block</option>
-        </select>
-        <label class="switch" title="Rule on/off"><input type="checkbox" class="rule-on"><span></span></label>
-        <div class="rule-move">
-          <button type="button" class="icon up" title="Move up" aria-label="Move up">↑</button>
-          <button type="button" class="icon down" title="Move down" aria-label="Move down">↓</button>
-          <button type="button" class="icon del" title="Delete rule" aria-label="Delete rule">✕</button>
-        </div>
+  <dialog class="dialog" id="howtoDialog" aria-labelledby="howtoTitle">
+    <header class="dialog-head">
+      <h2 id="howtoTitle">Import into Hiddify</h2>
+      <button type="button" class="btn btn-icon" data-close aria-label="Close"><svg class="ic"><use href="#i-x"/></svg></button>
+    </header>
+    <ol class="steps">
+      <li><b>From a file</b><span>Download <code>route_rules.json</code>, then in Hiddify open <b>Settings → Routing → ⋮ → Import from file</b>.</span></li>
+      <li><b>From a link</b><span>Click <b>Open in Hiddify</b>, or copy the link and use <b>⋮ → Import from clipboard</b>. Hiddify asks before it replaces anything.</span></li>
+      <li><b>Reconnect</b><span>Disconnect and connect again from Hiddify's home screen so the new rules load.</span></li>
+    </ol>
+    <div class="callout warn"><svg class="ic"><use href="#i-alert"/></svg><div>Importing <b>replaces all</b> routing rules in Hiddify. To keep and edit what you have, export it from Hiddify first (<b>⋮ → Export to file</b>) and use <b>Load rules</b> here.</div></div>
+    <div class="callout"><svg class="ic"><use href="#i-lock"/></svg><div>Hiddify's own rules keep their content, which differs between Windows and Android. Only their on/off switch comes from this file, so one file works on both.</div></div>
+  </dialog>
+
+  <dialog class="dialog" id="sourcesDialog" aria-labelledby="sourcesTitle">
+    <header class="dialog-head">
+      <h2 id="sourcesTitle">List sources</h2>
+      <button type="button" class="btn btn-icon" data-close aria-label="Close"><svg class="ic"><use href="#i-x"/></svg></button>
+    </header>
+    <div id="sourcesBody"></div>
+  </dialog>
+
+  <dialog class="dialog dialog-sm" id="confirmDialog" aria-labelledby="confirmTitle">
+    <form method="dialog">
+      <h2 id="confirmTitle" class="confirm-title"></h2>
+      <p class="muted" id="confirmText"></p>
+      <div class="dialog-actions">
+        <button class="btn btn-secondary" value="cancel">Cancel</button>
+        <button class="btn btn-danger" value="ok" id="confirmOk">Confirm</button>
       </div>
-      <div class="chips"></div>
-      <button type="button" class="target-btn">Add lists to this rule</button>
-      <details class="extra">
-        <summary>Domains, IPs, ports and apps</summary>
-        <div class="extra-grid"></div>
-      </details>
-    </article>
-  </template>
+    </form>
+  </dialog>
+
+  <div class="toasts" id="toasts" role="status" aria-live="polite"></div>
 
   <script type="module" src="app.js"></script>
 </body>
