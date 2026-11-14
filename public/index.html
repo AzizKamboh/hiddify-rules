@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Hiddify Rules Builder</title>
+  <title>Hiddify app rule Builder</title>
   <meta name="description" content="Decide what goes through your VPN, what connects directly and what gets blocked, then import the rules into Hiddify.">
   <meta name="color-scheme" content="light dark">
   <script>
@@ -63,11 +63,10 @@
   </svg>
 
   <header class="appbar">
-    <a class="brand" href="./" aria-label="Hiddify Rules Builder, home">
+    <a class="brand" href="./" aria-label="Hiddify app rule Builder, home">
       <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8"/><path d="M9.5 9.5h9a3.75 3.75 0 0 1 0 7.5h-5a3.75 3.75 0 0 0 0 7.5h9"/><circle cx="9.5" cy="9.5" r="2.4"/><circle cx="22.5" cy="24.5" r="2.4"/></svg>
       <span class="brand-text">
-        <span class="brand-name">Hiddify Rules Builder</span>
-        <span class="brand-tag">Routing workspace</span>
+        <span class="brand-name">Hiddify app rule Builder</span>
       </span>
     </a>
 
@@ -124,41 +123,44 @@
       </div>
     </section>
 
-    <section class="pane rules" aria-labelledby="rulesTitle">
-      <div class="pane-head">
+    <section class="pane rules" aria-labelledby="planTitle">
+      <div class="plan-wrap">
         <div class="pane-title-row">
-          <h2 id="rulesTitle" class="pane-title">Your rules</h2>
-          <span class="pane-sub">Checked top to bottom — the first match wins</span>
+          <h2 id="planTitle" class="pane-title">What will happen</h2>
+          <span class="pane-sub">in the order Hiddify checks</span>
         </div>
+        <ol class="plan" id="plan" aria-live="polite"></ol>
       </div>
 
       <div class="rules-body" id="rulesBody">
-        <details class="managed" id="managed">
-          <summary>
-            <svg class="ic"><use href="#i-lock"/></svg>
-            <span class="managed-title">Managed by Hiddify</span>
-            <span class="managed-summary" id="managedSummary"></span>
-            <svg class="ic chev"><use href="#i-chevron"/></svg>
-          </summary>
-          <div class="managed-body" id="builtins"></div>
-        </details>
-
+        <div class="section-row">
+          <h2 class="section-title">Your rules</h2>
+          <span class="pane-sub">first match wins</span>
+        </div>
         <ol class="rule-list" id="ruleList"></ol>
         <button class="btn btn-dashed" id="addRule" type="button"><svg class="ic"><use href="#i-plus"/></svg>Add rule</button>
 
-        <section class="fallback" aria-labelledby="fallbackTitle">
-          <div class="fallback-head">
-            <span class="step-num" aria-hidden="true">∞</span>
-            <div>
-              <h3 id="fallbackTitle">Everything else</h3>
-              <p class="muted" id="fallbackNote"></p>
+        <div class="settings">
+          <div class="setting">
+            <span class="setting-label" id="fallbackTitle">Everything else
+              <button type="button" class="tip" id="fallbackInfo" aria-label="About everything else"><svg class="ic"><use href="#i-info"/></svg></button>
+            </span>
+            <div class="segmented" role="radiogroup" aria-labelledby="fallbackTitle" id="fallback">
+              <button type="button" role="radio" data-value="direct"><svg class="ic"><use href="#i-direct"/></svg>Direct</button>
+              <button type="button" role="radio" data-value="proxy"><svg class="ic"><use href="#i-vpn"/></svg>VPN</button>
             </div>
           </div>
-          <div class="segmented" role="radiogroup" aria-labelledby="fallbackTitle" id="fallback">
-            <button type="button" role="radio" data-value="direct"><svg class="ic"><use href="#i-direct"/></svg>Direct via my ISP</button>
-            <button type="button" role="radio" data-value="proxy"><svg class="ic"><use href="#i-vpn"/></svg>Through the VPN</button>
-          </div>
-        </section>
+          <details class="managed" id="managed">
+            <summary>
+              <span class="setting-label">Hiddify built-ins
+                <span class="tip" title="Hiddify fills these in itself (Windows and Android differ) and checks them before your rules. This file only switches them on or off."><svg class="ic"><use href="#i-info"/></svg></span>
+              </span>
+              <span class="managed-summary" id="managedSummary"></span>
+              <svg class="ic chev"><use href="#i-chevron"/></svg>
+            </summary>
+            <div class="managed-body" id="builtins"></div>
+          </details>
+        </div>
       </div>
 
       <div class="exportbar">
@@ -199,6 +201,7 @@
       <li><b>Reconnect</b><span>Disconnect and connect again from Hiddify's home screen so the new rules load.</span></li>
     </ol>
     <div class="callout warn"><svg class="ic"><use href="#i-alert"/></svg><div>Importing <b>replaces all</b> routing rules in Hiddify. To keep and edit what you have, export it from Hiddify first (<b>⋮ → Export to file</b>) and use <b>Load rules</b> here.</div></div>
+    <div class="callout"><svg class="ic"><use href="#i-info"/></svg><div>Hiddify downloads the lists through the VPN, so they load the first time the VPN connects.</div></div>
     <div class="callout"><svg class="ic"><use href="#i-lock"/></svg><div>Hiddify's own rules keep their content, which differs between Windows and Android. Only their on/off switch comes from this file, so one file works on both.</div></div>
   </dialog>
 
