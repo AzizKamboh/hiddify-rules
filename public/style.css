@@ -671,9 +671,8 @@ select option { background: var(--surface); color: var(--text); }
     background: var(--surface); border-top: 1px solid var(--border); box-shadow: 0 -4px 16px rgba(0, 0, 0, .08);
   }
   .actionbar .sync { order: 2; width: 100%; justify-content: center; margin: 0; font-size: var(--fs-meta); padding: 0; }
-  .actionbar .actions { order: 1; width: 100%; }
-  .actionbar .actions .btn { flex: 1 1 0; min-width: 0; padding: 0 8px; }
-  .actionbar .actions .btn-primary { flex: 1.4 1 0; }
+  .actionbar .actions { order: 1; width: 100%; display: grid; grid-template-columns: 1fr 1fr; }
+  .actionbar .actions .btn { min-width: 0; padding: 0 8px; }
   /* compact rows instead of cards */
   .route { gap: 0; }
   .route-row { border: 0; border-bottom: 1px solid var(--border); border-radius: 0; padding: 10px 2px; background: none; }
@@ -708,9 +707,9 @@ select option { background: var(--surface); color: var(--text); }
 .mode-box .ic { color: var(--text-3); }
 .mode-box b { color: var(--text); font-weight: 600; }
 .mode-box span { overflow: hidden; text-overflow: ellipsis; }
-.block-ic { color: var(--text-2); }
-.block-ic .ic { width: 13px; height: 13px; }
-.chip .block-ic .ic { width: 11px; height: 11px; }
+.block-ic { background: none; color: var(--text-2); }
+.block-ic .ic { width: 18px; height: 18px; }
+.chip .block-ic .ic { width: 15px; height: 15px; }
 @media (max-width: 860px) { .rules-body { margin-top: var(--s2); } }
 @media (max-width: 600px) {
   .tabs.mode-tabs { grid-template-columns: 1fr 1fr; }
