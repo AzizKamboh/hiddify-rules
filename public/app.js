@@ -1,6 +1,6 @@
 import {
   toJsonFile, toImportLink, toRouteRule, parseRouteRules, lint, hasCondition, BUILTIN_DEFAULTS,
-} from './lib/hiddify.js';
+} from './lib/hiddify.js?v=__BUILD__';
 
 // ---------- constants ----------
 
@@ -35,7 +35,7 @@ const BUILTIN_INFO = {
 };
 const TABS = [
   ['services', 'Services', 'i-star'], ['sites', 'Sites', 'i-globe'], ['countries', 'Countries', 'i-flag'],
-  ['asn', 'Networks', 'i-network'], ['block', 'Block lists', 'i-shield-off'],
+  ['asn', 'Networks', 'i-network'], ['block', 'AdBlock', 'i-shield-off'],
 ];
 const IP_GROUP = 'IP ranges';
 
@@ -147,40 +147,46 @@ function toBuilderState() {
   };
 }
 
-// ---------- presets ----------
+// ---------- icons: service favicons and country flags ----------
+
+const FAVICON = (domain) => `https://icons.duckduckgo.com/ip3/${domain}.ico`;
+let siteDomains = new Map();   // site list name -> domain of a popular service using it
+
+/** Domain whose icon represents an item, if any. */
+function itemDomain(item) {
+  if (item.kind === 'service') return index.serviceDomains?.[item.n];
+  if (item.kind === 'site') return siteDomains.get(item.n);
+  return null;
+}
+
+/** Small picture for a list: flag, service icon, or a letter when there's no picture. */
+function visual({ flag, domain, letter }) {
+  if (flag) return `<img class="flag" src="flags/${flag}.svg" alt="" loading="lazy" decoding="async" data-letter="${escapeHtml(flag.toUpperCase())}">`;
+  if (domain) return `<img class="favicon" src="${FAVICON(domain)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" data-letter="${escapeHtml((letter || domain)[0].toUpperCase())}">`;
+  return `<span class="letter" aria-hidden="true">${escapeHtml((letter || '?')[0].toUpperCase())}</span>`;
+}
+
+function itemVisual(item) {
+  if (item.kind === 'country') return visual({ flag: item.n });
+  const domain = itemDomain(item);
+  return domain ? visual({ domain, letter: itemLabel(item) }) : '';
+}
+
+/** A picture that fails to load turns into its letter badge. */
+document.addEventListener('error', (ev) => {
+  const img = ev.target;
+  if (!(img instanceof HTMLImageElement) || !img.dataset.letter) return;
+  const span = document.createElement('span');
+  span.className = 'letter';
+  span.setAttribute('aria-hidden', 'true');
+  span.textContent = img.dataset.letter.slice(0, 2);
+  img.replaceWith(span);
+}, true);
+
+// ---------- featured services ----------
 
 function featuredItems(f) {
   return [...f.site.map((n) => ({ kind: 'site', n })), ...f.ip.map((n) => ({ kind: 'service', n }))];
-}
-
-async function applyPreset(id) {
-  const preset = index.presets.find((p) => p.id === id);
-  if (!preset) return;
-  if (state.rules.some(ruleHasContent) && !(await confirmDialog('Replace your rules?', `“${preset.label}” replaces the rules you have now.`, 'Replace'))) return;
-  const rules = preset.rules.map((p) => {
-    const rule = emptyRule(p.name, p.outbound);
-    for (const fid of p.featured || []) {
-      const f = index.featured.find((x) => x.id === fid);
-      if (f) rule.items.push(...featuredItems(f));
-    }
-    for (const c of p.countries || []) rule.items.push({ kind: 'country', n: c });
-    const group = index.asnGroups.find((g) => g.group === p.asnGroup);
-    for (const a of group?.items || []) rule.items.push({ kind: 'asn', n: String(a.asn) });
-    for (const [key] of EXTRA_FIELDS) if (p[key]) rule[key] = [...p[key]];
-    return rule;
-  });
-  if (!rules.length) rules.push(emptyRule());
-  state = {
-    builtins: { ...BUILTIN_DEFAULTS, ...(preset.builtins || {}) },
-    regionSet: state.regionSet,
-    rules,
-    fallback: preset.fallback,
-    active: rules[0].id,
-  };
-  if (preset.builtins) $('#managed').open = true;
-  render();
-  setView('rules');
-  toast(`Preset loaded: ${preset.label}`, 'ok');
 }
 
 // ---------- library ----------
@@ -193,16 +199,16 @@ function allEntries() {
   const out = [];
   const services = [];
   for (const f of index.featured) {
-    services.push({ tab: 'services', group: f.group, label: f.label, meta: describeFeatured(f), items: featuredItems(f), search: `${f.label} ${f.id} ${f.site.join(' ')}` });
+    services.push({ tab: 'services', group: f.group, visual: visual({ domain: f.domain, letter: f.label }), label: f.label, meta: describeFeatured(f), items: featuredItems(f), search: `${f.label} ${f.id} ${f.site.join(' ')}` });
   }
   for (const [n, src] of index.sites) {
     out.push({ tab: 'sites', label: n, mono: true, meta: src === 'm' ? 'MetaCubeX' : '', items: [{ kind: 'site', n }], search: n });
   }
   for (const c of index.countries) {
-    out.push({ tab: 'countries', label: countryName(c), meta: c.toUpperCase(), items: [{ kind: 'country', n: c }], search: `${countryName(c)} ${c}` });
+    out.push({ tab: 'countries', visual: visual({ flag: c }), label: countryName(c), meta: c.toUpperCase(), items: [{ kind: 'country', n: c }], search: `${countryName(c)} ${c}` });
   }
   for (const s of index.services) {
-    services.push({ tab: 'services', group: IP_GROUP, label: `${s}`, mono: true, meta: 'IP ranges only', items: [{ kind: 'service', n: s }], search: `${s} ip` });
+    services.push({ tab: 'services', group: IP_GROUP, visual: visual({ domain: index.serviceDomains?.[s], letter: s }), label: `${s}`, mono: true, meta: 'IP ranges only', items: [{ kind: 'service', n: s }], search: `${s} ip` });
   }
   const az = (a, b) => a.localeCompare(b, 'en', { sensitivity: 'base' });
   services.sort((a, b) => az(a.group, b.group) || az(a.label, b.label));
@@ -245,7 +251,7 @@ function where(item) {
 function renderTarget() {
   const rule = activeRule();
   $('#activeTarget').innerHTML = rule
-    ? `${icon('i-target')}<span>Adding to</span><span class="step-num">${ruleNumber(rule)}</span><b>${escapeHtml(rule.name || 'Untitled rule')}</b>${outBadge(rule.outbound)}`
+    ? `${icon('i-target')}<span>Adding to <b class="rule-ref">rule #${ruleNumber(rule)}</b></span><span class="dot">·</span><b>${escapeHtml(rule.name || 'Untitled rule')}</b>${outBadge(rule.outbound)}`
     : `${icon('i-target')}<span>Add a rule to start picking lists.</span>`;
 }
 
@@ -298,6 +304,7 @@ function entryButton(e, rule) {
   b.setAttribute('aria-pressed', String(on));
   const others = [...new Set(e.items.flatMap(where))];
   b.innerHTML = `<span class="check">${icon('i-check')}</span>`
+    + (e.visual || '')
     + `<span class="name${e.mono ? ' mono' : ''}">${escapeHtml(e.label)}</span>`
     + (others.length ? `<span class="elsewhere" title="Already in rule ${ruleNumber(others[0])}: ${escapeHtml(others[0].name)}"><span class="step-num">${ruleNumber(others[0])}</span>${escapeHtml(others[0].name)}</span>` : '')
     + (e.meta ? `<span class="meta">${escapeHtml(e.meta)}</span>` : '');
@@ -457,7 +464,7 @@ function ruleCard(rule, i) {
       const chip = document.createElement('span');
       chip.className = 'chip';
       chip.title = itemUrl(item);
-      chip.innerHTML = `<span class="label">${escapeHtml(itemLabel(item))}</span><span class="kind">${KIND_LABEL[item.kind]}</span><button type="button" aria-label="Remove ${escapeHtml(itemLabel(item))}">${icon('i-x')}</button>`;
+      chip.innerHTML = `${itemVisual(item)}<span class="label">${escapeHtml(itemLabel(item))}</span><span class="kind">${KIND_LABEL[item.kind]}</span><button type="button" aria-label="Remove ${escapeHtml(itemLabel(item))}">${icon('i-x')}</button>`;
       $('button', chip).onclick = () => { rule.items = rule.items.filter((x) => x !== item); render(`${rule.id}:name`); };
       chips.append(chip);
     }
@@ -840,21 +847,8 @@ async function start() {
     return;
   }
   siteSource = new Map(index.sites);
+  siteDomains = new Map(index.featured.filter((f) => f.domain).flatMap((f) => f.site.map((n) => [n, f.domain])));
   state = load();
-
-  const presetSel = $('#preset');
-  for (const p of index.presets) {
-    const o = document.createElement('option');
-    o.value = p.id;
-    o.textContent = p.label;
-    o.title = p.description;
-    presetSel.append(o);
-  }
-  presetSel.onchange = async () => {
-    const id = presetSel.value;
-    presetSel.value = '';
-    if (id) await applyPreset(id);
-  };
 
   let searchTimer;
   $('#search').oninput = (e) => {

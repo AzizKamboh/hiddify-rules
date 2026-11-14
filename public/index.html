@@ -16,7 +16,7 @@
       document.documentElement.dataset.themePref = pref;
     })();
   </script>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=__BUILD__">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%232f5bd3'/%3E%3Cpath d='M9.5 9.5h9a3.75 3.75 0 0 1 0 7.5h-5a3.75 3.75 0 0 0 0 7.5h9' stroke='white' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='9.5' cy='9.5' r='2.4' fill='white'/%3E%3Ccircle cx='22.5' cy='24.5' r='2.4' fill='white'/%3E%3C/svg%3E">
 </head>
 <body data-view="library">
@@ -71,10 +71,6 @@
     </a>
 
     <div class="appbar-actions">
-      <label class="field-inline">
-        <span class="sr-only">Start from a preset</span>
-        <select id="preset" class="select select-sm"><option value="">Start from a preset…</option></select>
-      </label>
       <label class="btn btn-ghost btn-sm" title="Load a route_rules.json exported from Hiddify or from this page">
         <svg class="ic"><use href="#i-upload"/></svg><span class="hide-sm">Load rules</span>
         <input type="file" id="loadFile" accept=".json,application/json" class="sr-only">
@@ -117,10 +113,6 @@
         <div class="tabs" id="tabs" role="tablist" aria-label="List categories"></div>
       </div>
       <div class="list" id="list" role="tabpanel" aria-labelledby="libTitle"></div>
-      <div class="pane-foot">
-        <span class="sync" id="syncLine"></span>
-        <button type="button" class="btn btn-ghost btn-xs" id="sourcesBtn"><svg class="ic"><use href="#i-info"/></svg>Sources</button>
-      </div>
     </section>
 
     <section class="pane rules" aria-labelledby="planTitle">
@@ -173,10 +165,14 @@
           <button class="btn btn-icon" id="previewBtn" type="button" title="Preview JSON" aria-label="Preview JSON"><svg class="ic"><use href="#i-code"/></svg></button>
           <button class="btn btn-icon" id="howtoBtn" type="button" title="How to import" aria-label="How to import"><svg class="ic"><use href="#i-help"/></svg></button>
         </div>
-        <p class="replace-note"><svg class="ic"><use href="#i-info"/></svg>Importing replaces all routing rules in Hiddify. Reconnect afterwards.</p>
       </div>
     </section>
   </main>
+
+  <footer class="appfoot">
+    <span class="sync"><span id="syncLine"></span><button type="button" class="linkbtn" id="sourcesBtn">Sources</button></span>
+    <span class="replace-note"><svg class="ic"><use href="#i-info"/></svg>Importing replaces all routing rules in Hiddify. Reconnect afterwards.</span>
+  </footer>
 
   <dialog class="dialog dialog-wide" id="previewDialog" aria-labelledby="previewTitle">
     <header class="dialog-head">
@@ -226,6 +222,6 @@
 
   <div class="toasts" id="toasts" role="status" aria-live="polite"></div>
 
-  <script type="module" src="app.js"></script>
+  <script type="module" src="app.js?v=__BUILD__"></script>
 </body>
 </html>
