@@ -38,7 +38,7 @@ const BUILTIN_INFO = {
   bypassRegion: ['Bypass region', 'Sites and IPs of the region set in Hiddify connect directly.', 'direct'],
 };
 const TABS = [
-  ['services', 'Services', 'i-star'], ['sites', 'Sites', 'i-globe'], ['countries', 'Countries', 'i-flag'],
+  ['services', 'Services', 'i-star'], ['countries', 'Countries', 'i-flag'], ['sites', 'Websites', 'i-globe'],
   ['asn', 'Networks', 'i-network'], ['block', 'AdBlock', 'i-shield-off'],
 ];
 const IP_GROUP = 'IP ranges';
@@ -214,6 +214,8 @@ const nothingUsesVpn = () => {
 // ---------- icons: service favicons and country flags ----------
 
 const FAVICON = (domain) => `https://icons.duckduckgo.com/ip3/${domain}.ico`;
+const FAVICON_2 = (domain) => `https://www.google.com/s2/favicons?domain=${domain}&sz=64`;
+const BLOCK_ICON = (n) => (n.includes('ads') ? 'i-megaphone' : n.includes('malware') ? 'i-bug' : n.includes('phishing') ? 'i-hook' : n.includes('crypto') ? 'i-cpu' : 'i-shield-off');
 
 function itemDomain(item) {
   if (item.kind === 'service') return index.serviceDomains?.[item.n];
@@ -223,12 +225,15 @@ function itemDomain(item) {
 
 function visual({ flag, domain, letter }) {
   if (flag) return `<img class="flag" src="flags/${flag}.svg" alt="" loading="lazy" decoding="async" data-letter="${escapeHtml(flag.toUpperCase())}">`;
-  if (domain) return `<img class="favicon" src="${FAVICON(domain)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" data-letter="${escapeHtml((letter || domain)[0].toUpperCase())}">`;
+  if (domain) return `<img class="favicon" src="${FAVICON(domain)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" data-fallback="${FAVICON_2(domain)}" data-letter="${escapeHtml((letter || domain)[0].toUpperCase())}">`;
   return `<span class="letter" aria-hidden="true">${escapeHtml((letter || '?')[0].toUpperCase())}</span>`;
 }
 
+const blockVisual = (n) => `<span class="letter block-ic" aria-hidden="true">${icon(BLOCK_ICON(n))}</span>`;
+
 function itemVisual(item) {
   if (item.kind === 'country') return visual({ flag: item.n });
+  if (item.kind === 'block') return blockVisual(item.n);
   if (item.kind === 'asn') {
     const cc = asnNames?.get(String(item.n))?.cc || item.cc;
     return cc ? visual({ flag: cc.toLowerCase() }) : visual({ letter: 'N' });
@@ -237,9 +242,22 @@ function itemVisual(item) {
   return domain ? visual({ domain, letter: itemLabel(item) }) : visual({ letter: itemLabel(item) });
 }
 
+document.addEventListener('load', (ev) => {
+  const img = ev.target;
+  if (img instanceof HTMLImageElement && img.classList.contains('favicon') && img.dataset.fallback && img.naturalWidth <= 1) {
+    img.src = img.dataset.fallback;
+    delete img.dataset.fallback;
+  }
+}, true);
+
 document.addEventListener('error', (ev) => {
   const img = ev.target;
   if (!(img instanceof HTMLImageElement) || !img.dataset.letter) return;
+  if (img.dataset.fallback) {
+    img.src = img.dataset.fallback;
+    delete img.dataset.fallback;
+    return;
+  }
   const span = document.createElement('span');
   span.className = 'letter';
   span.setAttribute('aria-hidden', 'true');
@@ -291,7 +309,8 @@ function allEntries() {
   for (const [n, src] of index.sites) {
     out.push({ tab: 'sites', label: n, meta: src === 'm' ? 'MetaCubeX' : '', visual: siteDomains.has(n) ? visual({ domain: siteDomains.get(n), letter: n }) : '', items: [{ kind: 'site', n }], search: n });
   }
-  for (const c of index.countries) {
+  const countries = [...index.countries].sort((a, b) => az(countryName(a), countryName(b)));
+  for (const c of countries) {
     out.push({ tab: 'countries', visual: visual({ flag: c }), label: countryName(c), meta: c.toUpperCase(), items: [{ kind: 'country', n: c }], search: `${countryName(c)} ${c}` });
   }
   for (const g of index.asnGroups) {
@@ -299,8 +318,10 @@ function allEntries() {
       out.push({ tab: 'asn', group: g.group, visual: visual({ flag: 'pk' }), label: a.label, meta: `AS${a.asn}`, items: [{ kind: 'asn', n: String(a.asn), label: a.label, cc: 'PK' }], search: `as${a.asn} ${a.asn} ${a.label}` });
     }
   }
-  for (const b of index.block) {
-    out.push({ tab: 'block', label: b.replace(/^geo(site|ip)-/, ''), meta: b.startsWith('geoip') ? 'IP list' : 'domains', items: [{ kind: 'block', n: b }], search: b });
+  const blockName = (b) => b.replace(/^geo(site|ip)-/, '');
+  const blocks = [...index.block].sort((a, b) => az(blockName(a), blockName(b)) || (a.startsWith('geoip') ? 1 : -1));
+  for (const b of blocks) {
+    out.push({ tab: 'block', visual: blockVisual(b), label: blockName(b), meta: b.startsWith('geoip') ? 'IP list' : 'domains', items: [{ kind: 'block', n: b }], search: b });
   }
   return out;
 }
@@ -356,22 +377,7 @@ function isPicked(items) {
   return Boolean(bucket) && items.every((i) => bucket.some((x) => itemKey(x) === itemKey(i)));
 }
 
-/** "Adding to …" line: the same words on phone (Apps & sites) and desktop (Split tunneling). */
-function targetHtml() {
-  const n = pickCount();
-  const count = n ? `<span class="muted">· ${n} picked</span>` : '';
-  if (isAdvanced()) {
-    const rule = activeRule();
-    return rule ? `${icon('i-target')}<span>Adding to <b>rule #${ruleNumber(rule)} · ${escapeHtml(rule.name || 'Untitled')}</b></span>${count}` : `${icon('i-target')}<span>Add a rule to start picking lists</span>`;
-  }
-  return `${icon('i-target')}<span>Adding to <b>${MODES[state.mode].row}</b></span>${count}`;
-}
-
-function renderTarget() {
-  const html = targetHtml();
-  $('#libTarget').innerHTML = html;
-  $('#activeTarget').innerHTML = html;
-}
+function renderTarget() { /* the 'Adding to' line was removed */ }
 
 function renderLibrary() {
   renderTabs();
@@ -642,9 +648,14 @@ function renderMode() {
   for (const b of $$('#mode button')) {
     const on = !isAdvanced() && b.dataset.value === state.mode;
     b.setAttribute('aria-checked', String(on));
+    b.setAttribute('aria-selected', String(on));
     b.tabIndex = on ? 0 : -1;
   }
-  $('#modeTip').title = MODES[state.mode].desc;
+  const box = state.mode === 'exclude'
+    ? `${icon('i-direct')}<span><b>Picked items skip the VPN</b> · everything else uses it</span>`
+    : `${icon('i-vpn')}<span><b>Picked items use the VPN</b> · everything else goes direct</span>`;
+  $('#modeBox').innerHTML = box;
+  $('#modeBox').title = MODES[state.mode].desc;
 }
 
 async function setMode(mode) {

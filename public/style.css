@@ -257,7 +257,7 @@ body {
 
 /* ---------- rules ---------- */
 .rules { container-type: inline-size; }
-.rules-body { flex: 1; min-height: 0; overflow-y: auto; padding: var(--s4); scrollbar-gutter: stable; }
+.rules-body { flex: 1; min-height: 0; overflow-y: auto; padding: var(--s3) var(--s4) var(--s4); margin-top: var(--s2); border-top: 1px solid var(--border); scrollbar-gutter: stable; }
 
 .rule-list { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
 .rule {
@@ -586,7 +586,7 @@ select option { background: var(--surface); color: var(--text); }
 }
 
 /* ---------- split tunneling panel ---------- */
-.split-head { padding-bottom: var(--s3); border-bottom: 1px solid var(--border); }
+
 .split-title-row { display: flex; align-items: center; gap: var(--s3); flex-wrap: wrap; }
 .split-title-row .pane-title { font-size: var(--fs-title); margin-right: auto; }
 .segmented.mode { grid-template-columns: repeat(2, 1fr); min-width: 220px; }
@@ -700,4 +700,26 @@ select option { background: var(--surface); color: var(--text); }
 }
 @media (max-width: 370px) {
   .actionbar .btn-secondary .ic { display: none; }
+}
+
+/* split tunneling header mirrors the Apps & sites header row for row */
+.mode-tabs .tab { flex: 1 1 0; }
+.mode-tabs .tab[aria-checked="true"] { background: var(--accent); color: var(--on-accent); box-shadow: var(--shadow-1); }
+.mode-tabs .tab[aria-checked="true"] .ic { color: var(--on-accent); }
+.mode-box {
+  display: flex; align-items: center; gap: var(--s2); margin-top: 10px; height: var(--ctl-h); padding: 0 10px;
+  border: 1px solid var(--border-strong); border-radius: var(--r-md); background: var(--surface-2);
+  font-size: var(--fs-small); color: var(--text-2); overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+}
+.mode-box .ic { color: var(--text-3); }
+.mode-box b { color: var(--text); font-weight: 600; }
+.mode-box span { overflow: hidden; text-overflow: ellipsis; }
+.block-ic { color: var(--text-2); }
+.block-ic .ic { width: 13px; height: 13px; }
+.chip .block-ic .ic { width: 11px; height: 11px; }
+@media (max-width: 860px) { .rules-body { margin-top: var(--s2); } }
+@media (max-width: 600px) {
+  .tabs.mode-tabs { grid-template-columns: 1fr 1fr; }
+  .mode-tabs .tab .ic { display: inline-block; margin-right: 6px; }
+  .mode-box { height: auto; min-height: var(--ctl-h); padding: 7px 10px; white-space: normal; line-height: 1.35; }
 }

@@ -18,7 +18,6 @@ see below): Hiddify downloads them straight from their source and keeps them up 
 | [SagerNet/sing-geoip](https://github.com/SagerNet/sing-geoip/tree/rule-set) | 238 country IP lists (MaxMind GeoLite2) |
 | [MetaCubeX/meta-rules-dat](https://github.com/MetaCubeX/meta-rules-dat/tree/sing) | Service IP lists (Telegram, Google, Netflix, Cloudflare…), ~83,000 network (ASN) lists, and site lists SagerNet doesn't have |
 | [hiddify/hiddify-geo](https://github.com/hiddify/hiddify-geo/tree/rule-set) | Ad, malware, phishing and miner block lists (the same ones Hiddify's built-in rule uses) |
-| [iptoasn.com](https://iptoasn.com/) | Network (ASN) names and countries, public domain, so networks can be searched by name |
 
 Country flags: [flag-icons](https://github.com/lipis/flag-icons) (MIT), in `public/flags/`. Service icons are loaded from DuckDuckGo's icon service.
 
