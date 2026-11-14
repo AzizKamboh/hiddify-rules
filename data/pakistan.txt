@@ -47,6 +47,7 @@ nrspbank.com
 sadapay.com
 efulife.com
 almeezangroup.com
+jubileelife.com
 
 [gov] Government and education
 .gov.pk
@@ -113,6 +114,18 @@ geosuper.tv
 a-sports.tv
 tensportstv.com
 mettisglobal.news
+lahorenews.tv
+khybernews.tv
+24newshd.tv
+gnnhd.tv
+waqtnews.tv
+abbtakk.tv
+paigham.tv
+tvonepk.tv
+humsitaray.tv
+pakobserver.net
+urduchronicle.com
+pakpassion.net
 
 [telecom] Telecom and internet
 ptcl.com.pk
@@ -141,6 +154,8 @@ cinepax.com
 cuecinemas.com
 universalcinemas.com
 nueplex.com
+mjunoon.tv
+theuniversecineplex.com
 
 [shopping] Shopping and food
 daraz.pk
@@ -223,6 +238,18 @@ cheezious.com
 alfamall.com
 kravemart.com
 qarshihealthshop.com
+tehzeeb.com
+lalqila.com
+14thstreetpizza.com
+masteroffisys.com
+bosspakistan.com
+rafiqsonsonline.com
+hanifjewellers.com
+dreamspakistan.com
+darimooch.com
+thehairpantry.com
+vincecare.com
+diamondpaints.com
 
 [everyday] Rides, travel, property and jobs
 zameen.com
@@ -258,6 +285,13 @@ toyota-indus.com
 psopk.com
 chughtailab.com
 peekaboo.guru
+ziauddinhospital.com
+bahriatown.com
+e-billingbahriatownlahore.com
+sereneair.com
+quettagladiators.com
+islamabadunited.com
+karachiliteraturefestival.com
 
 [community] Religion, charity and community
 dawateislami.net
