@@ -62,7 +62,6 @@ let query = '';
 let uid = 1;
 let entriesCache = null;
 const openConditions = new Set();
-let builtinsOpen = false;
 
 // ---------- state ----------
 
@@ -399,11 +398,16 @@ function renderLibrary() {
   const scroll = list.scrollTop;
   list.innerHTML = '';
   const isAsnQuery = /^(as)?\d+$/.test(q);
-  if ((tab === 'asn' && !q) || isAsnQuery) list.append(asnAdder(isAsnQuery ? qNum : ''));
+  if (isAsnQuery) {
+    if (!asnList) {
+      fetch('data/asns.txt').then((r) => r.text()).then((t) => { asnList = new Set(t.split('\n').filter(Boolean)); renderLibrary(); }).catch(() => {});
+    } else if (!entries.some((e) => e.items.some((i) => i.kind === 'asn' && i.n === qNum))) {
+      if (asnList.has(qNum)) entries.unshift({ tab: 'asn', label: `AS${qNum}`, meta: 'network', visual: visual({ letter: 'N' }), items: [{ kind: 'asn', n: qNum }], search: '' });
+      else list.insertAdjacentHTML('beforeend', `<div class="empty"><b>No list for AS${escapeHtml(qNum)}</b>MetaCubeX has no list for this network.</div>`);
+    }
+  }
   if (tab === 'asn' && !q) {
-    list.insertAdjacentHTML('beforeend', `<p class="list-hint">${asnNames
-      ? `Search ${fmtCount(index.counts.asns)} networks by name, number or country — e.g. “Nayatel”, “PK”, “Pakistan”.`
-      : index.asnNames ? 'Loading network names…' : `Search ${fmtCount(index.counts.asns)} networks by number.`}</p>`);
+    list.insertAdjacentHTML('beforeend', `<p class="list-hint">Type a network number in search, e.g. 17557 — ${fmtCount(index.counts.asns)} networks have a list.</p>`);
   }
   if (!entries.length && !isAsnQuery) {
     list.insertAdjacentHTML('beforeend', `<div class="empty"><b>No lists match “${escapeHtml(query)}”</b>Try a service, a country or a network name.</div>`);
@@ -434,29 +438,6 @@ function entryButton(e) {
     + (e.meta ? `<span class="meta">${escapeHtml(e.meta)}</span>` : '');
   b.onclick = () => toggleItems(e.items, !on, e.label);
   return b;
-}
-
-function asnAdder(prefill) {
-  const wrap = document.createElement('div');
-  wrap.className = 'asn-add';
-  wrap.innerHTML = `<label class="sr-only" for="asnInput">ASN number</label><input id="asnInput" class="input" placeholder="Network number, e.g. 17557" inputmode="numeric" autocomplete="off"><button class="btn btn-secondary" type="button">${icon('i-plus')}Add network</button>`;
-  const input = $('input', wrap);
-  input.value = prefill || '';
-  const add = async () => {
-    const n = input.value.trim().replace(/^as/i, '');
-    if (!/^\d+$/.test(n)) return toast('Type an ASN number, like 17557', 'err');
-    try {
-      asnList ||= await fetch('data/asns.txt').then((r) => r.text()).then((t) => new Set(t.split('\n').filter(Boolean)));
-    } catch {
-      return toast("Couldn't load the network list", 'err');
-    }
-    if (!asnList.has(n)) return toast(`AS${n} has no list in MetaCubeX`, 'err');
-    const meta = asnNames?.get(n);
-    toggleItems([{ kind: 'asn', n, ...(meta ? { label: meta.name, cc: meta.cc } : {}) }], true, meta?.name || `AS${n}`);
-  };
-  $('button', wrap).onclick = add;
-  input.onkeydown = (ev) => { if (ev.key === 'Enter') add(); };
-  return wrap;
 }
 
 function toggleItems(items, add, label) {
@@ -585,29 +566,19 @@ function renderRoute() {
   let n = 0;
   // Hiddify's own rules, always checked first
   const builtins = ['bypassLan', 'systemDirect', 'blockAds', ...(state.regionSet ? ['bypassRegion'] : [])];
-  const compact = document.createElement('li');
-  compact.className = 'route-row builtins-compact';
-  const short = { bypassLan: 'LAN', systemDirect: 'System', blockAds: 'Ads', bypassRegion: 'Region' };
-  compact.innerHTML = `<details${builtinsOpen ? ' open' : ''}><summary class="route-head"><span class="step-num">1–${builtins.length}</span><span class="route-title">Hiddify built-ins</span><span class="builtins-summary">${builtins.map((k) => `<span class="${state.builtins[k] ? 'on' : ''}">${short[k]} ${state.builtins[k] ? 'on' : 'off'}</span>`).join(' · ')}</span>${icon('i-chevron', 'ic chev')}</summary><div class="builtins-body"></div></details>`;
-  $('details', compact).ontoggle = (e) => { builtinsOpen = e.target.open; };
+  const section = document.createElement('li');
+  section.className = 'route-row builtins-section';
+  section.innerHTML = `<div class="route-head"><span class="step-num">${++n}</span><span class="route-title">Hiddify built-ins</span></div><div class="builtins-body"></div>`;
   for (const key of builtins) {
     const [name, desc, out] = BUILTIN_INFO[key];
     const row = document.createElement('div');
     row.className = 'builtin-line';
-    row.innerHTML = `<span class="route-title">${escapeHtml(name)}<button type="button" class="tip" title="${escapeHtml(desc)}" aria-label="More about this">${icon('i-info')}</button></span>${outBadge(out)}<label class="switch"><input type="checkbox" role="switch" aria-label="${escapeHtml(name)}"><span class="track"></span></label>`;
+    row.innerHTML = `<span class="route-title">${escapeHtml(name)}<button type="button" class="tip" title="${escapeHtml(desc)}" aria-label="More about this">${icon('i-info')}</button></span>${outBadge(out)}<label class="switch"><input type="checkbox" role="switch" data-fk="b:${key}" aria-label="${escapeHtml(name)}"><span class="track"></span></label>`;
     $('input', row).checked = Boolean(state.builtins[key]);
-    $('input', row).onchange = (e) => { state.builtins[key] = e.target.checked; render(); };
-    $('.builtins-body', compact).append(row);
+    $('input', row).onchange = (e) => { state.builtins[key] = e.target.checked; render(`b:${key}`); };
+    $('.builtins-body', section).append(row);
   }
-  ol.append(compact);
-  for (const key of builtins) {
-    const [name, desc, out] = BUILTIN_INFO[key];
-    ol.append(routeRow({
-      n: ++n, title: escapeHtml(name), desc, out, key, on: Boolean(state.builtins[key]), muted: !state.builtins[key],
-      toggle: (v) => { state.builtins[key] = v; render(`b:${key}`); },
-    }));
-    ol.lastElementChild.classList.add('builtin-row');
-  }
+  ol.append(section);
 
   if (isAdvanced()) {
     state.rules.forEach((rule, i) => ol.append(ruleCard(rule, i, ++n)));
@@ -632,16 +603,8 @@ function renderRoute() {
     const m = MODES[state.mode];
     const body = document.createElement('div');
     // Exclude: the local network bypasses the VPN too (Hiddify's Bypass LAN rule), shown as the first item
-    const lan = state.mode === 'exclude' && state.builtins.bypassLan;
-    if (state.picks.length || lan) {
-      let lead = null;
-      if (lan) {
-        lead = document.createElement('div');
-        lead.className = 'pick-group';
-        lead.innerHTML = `<div class="pick-cat">Local network<span class="pick-n">1</span></div><ul class="pick-list"><li class="pick chip-lan" title="Hiddify’s Bypass LAN rule: private and local addresses">${visual({ letter: 'L' })}<span class="label">Local network (LAN)</span><span class="kind">built-in</span><button type="button" class="iconbtn" aria-label="Stop excluding the local network">${icon('i-x')}</button></li></ul>`;
-        $('button', lead).onclick = () => { state.builtins.bypassLan = false; render(); };
-      }
-      body.append(groupedList(state.picks, (gone) => { state.picks = state.picks.filter((x) => !gone.includes(x)); render(); }, lead));
+    if (state.picks.length) {
+      body.append(groupedList(state.picks, (gone) => { state.picks = state.picks.filter((x) => !gone.includes(x)); render(); }));
     } else {
       const p = document.createElement('p');
       p.className = 'route-empty';
