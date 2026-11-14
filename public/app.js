@@ -359,12 +359,13 @@ function renderTabs() {
     b.type = 'button';
     b.className = 'tab';
     b.setAttribute('role', 'tab');
-    const selected = tab === id && !query;
+    const selected = tab === id;
     b.setAttribute('aria-selected', String(selected));
-    b.tabIndex = (query ? id === 'services' : selected) ? 0 : -1;
+    b.tabIndex = selected ? 0 : -1;
+    if (selected) $('#search').placeholder = `Search ${label.toLowerCase()}…`;
     b.dataset.tab = id;
     b.innerHTML = `${icon(ic)}<span>${label}</span><span class="count">${fmtCount(counts[id])}</span>`;
-    b.onclick = () => { tab = id; query = ''; $('#search').value = ''; if (id === 'asn') { loadAsnNames(); loadAsnList(); } renderLibrary(); };
+    b.onclick = () => { tab = id; $('#list').scrollTop = 0; if (id === 'asn') { loadAsnNames(); loadAsnList(); } renderLibrary(); };
     el.append(b);
   }
   if (focused) $(`.tab[data-tab="${focused}"]`)?.focus();
@@ -389,20 +390,21 @@ function renderLibrary() {
   entriesCache ||= allEntries();
   const q = query.trim().toLowerCase();
   const qNum = q.replace(/^as(?=\d)/, '');
-  let entries = q
-    ? entriesCache.filter((e) => e.search.toLowerCase().includes(q) || (qNum !== q && e.search.toLowerCase().includes(qNum)))
-    : entriesCache.filter((e) => e.tab === tab);
+  // search stays inside the selected category
+  let entries = entriesCache.filter((e) => e.tab === tab
+    && (!q || e.search.toLowerCase().includes(q) || (qNum !== q && e.search.toLowerCase().includes(qNum))));
   if (q) {
     const score = (e) => (e.label.toLowerCase() === q ? 0 : e.label.toLowerCase().startsWith(q) ? 1 : 2);
-    const tabOrder = (e) => TABS.findIndex((t) => t[0] === e.tab);
     const ipOnly = (e) => (e.group === IP_GROUP ? 1 : 0);
-    entries = entries.sort((a, b) => tabOrder(a) - tabOrder(b) || score(a) - score(b) || ipOnly(a) - ipOnly(b));
-    entries.push(...networkMatches(q));
+    entries = entries.sort((a, b) => score(a) - score(b) || ipOnly(a) - ipOnly(b));
+    if (tab === 'asn') entries.push(...networkMatches(q));
+  } else if (tab === 'sites') {
+    entries = POPULAR_SITES.map((n) => entries.find((e) => e.label === n)).filter(Boolean);
   }
   const list = $('#list');
   const scroll = list.scrollTop;
   list.innerHTML = '';
-  const isAsnQuery = /^(as)?\d+$/.test(q);
+  const isAsnQuery = tab === 'asn' && /^(as)?\d+$/.test(q);
   if (isAsnQuery) {
     if (!asnList) loadAsnList();
     else if (!entries.some((e) => e.items.some((i) => i.kind === 'asn' && String(i.n) === qNum))) {
@@ -418,13 +420,16 @@ function renderLibrary() {
   if (tab === 'asn' && !q) {
     list.insertAdjacentHTML('beforeend', `<p class="list-hint">Search ${fmtCount(index.counts.asns)} networks by name, number or country, e.g. “Wateen”, “17557”, “PK”.</p>`);
   }
+  if (tab === 'sites' && !q) {
+    list.insertAdjacentHTML('beforeend', `<p class="list-hint">Search ${fmtCount(index.counts.sites)} websites by name, e.g. “youtube”, “netflix”, “github”.</p>`);
+  }
   if (!entries.length && !isAsnQuery) {
-    list.insertAdjacentHTML('beforeend', `<div class="empty"><b>No lists match “${escapeHtml(query)}”</b>Try a service, a country or a network name.</div>`);
+    list.insertAdjacentHTML('beforeend', `<div class="empty"><b>No ${escapeHtml(TABS.find((t) => t[0] === tab)[1].toLowerCase())} match “${escapeHtml(query)}”</b>Try another name, or another category above.</div>`);
     return;
   }
   let lastGroup = null;
   for (const e of entries.slice(0, LIST_LIMIT)) {
-    const group = q ? (e.tab === 'asn' ? (e.group ? `Networks · ${e.group}` : 'Networks') : TABS.find((t) => t[0] === e.tab)[1]) : e.group;
+    const group = tab === 'sites' && !q ? 'Popular websites' : e.group || (tab === 'asn' ? 'Other networks' : '');
     if (group && group !== lastGroup) {
       list.insertAdjacentHTML('beforeend', `<div class="group-title">${escapeHtml(group)}</div>`);
       lastGroup = group;
@@ -503,6 +508,8 @@ function chipList(items, remove) {
   }
   return wrap;
 }
+
+const POPULAR_SITES = ['youtube', 'google', 'facebook', 'instagram', 'whatsapp', 'tiktok', 'netflix', 'twitter', 'telegram', 'wikimedia'];
 
 const CATEGORY_ORDER = [['services', 'Services'], ['countries', 'Countries'], ['sites', 'Websites'], ['asn', 'Networks'], ['block', 'AdBlock'], ['url', 'Other']];
 const KIND_CATEGORY = { service: 'services', country: 'countries', site: 'sites', asn: 'asn', block: 'block', url: 'url' };

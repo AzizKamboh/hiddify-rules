@@ -182,7 +182,7 @@
     {
       "group": "AI",
       "id": "openai",
-      "label": "ChatGPT / OpenAI",
+      "label": "ChatGPT",
       "site": [
         "openai"
       ],
@@ -192,7 +192,7 @@
     {
       "group": "AI",
       "id": "anthropic",
-      "label": "Claude / Anthropic",
+      "label": "Claude",
       "site": [
         "anthropic"
       ],
