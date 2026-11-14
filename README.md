@@ -18,8 +18,9 @@ see below): Hiddify downloads them straight from their source and keeps them up 
 | [SagerNet/sing-geoip](https://github.com/SagerNet/sing-geoip/tree/rule-set) | 238 country IP lists (MaxMind GeoLite2) |
 | [MetaCubeX/meta-rules-dat](https://github.com/MetaCubeX/meta-rules-dat/tree/sing) | Service IP lists (Telegram, Google, Netflix, Cloudflare…), ~83,000 network (ASN) lists, and site lists SagerNet doesn't have |
 | [hiddify/hiddify-geo](https://github.com/hiddify/hiddify-geo/tree/rule-set) | Ad, malware, phishing and miner block lists (the same ones Hiddify's built-in rule uses) |
+| [iptoasn.com](https://iptoasn.com/) | Network names and countries for network search (public domain; names only) |
 
-Country flags: [flag-icons](https://github.com/lipis/flag-icons) (MIT), in `public/flags/`. Service icons are loaded from DuckDuckGo's icon service.
+Country flags: [flag-icons](https://github.com/lipis/flag-icons) (MIT), in `public/flags/`. Service and website icons are loaded from Google's favicon service, with DuckDuckGo's as a fallback.
 
 ## Split tunneling
 
@@ -28,20 +29,22 @@ Country flags: [flag-icons](https://github.com/lipis/flag-icons) (MIT), in `publ
 | **Exclude** (default) | bypasses the VPN, connects directly | VPN |
 | **Include** | uses the VPN | connects directly through your ISP, local network included |
 
+The page shows the rules in the order Hiddify checks them: **1** Hiddify's built-in rules (switches),
+**2** AdBlock (only when an AdBlock list is picked), **3** Bypass VPN or Use VPN with your picks.
 Exclude with nothing picked is exactly Hiddify's default: only the local network (the built-in Bypass LAN
-rule, shown as the first excluded item) bypasses the VPN. AdBlock lists go to a separate *Blocked* rule.
-Uploaded files open in Include or Exclude, depending on where their unmatched traffic goes.
+rule) bypasses the VPN. Uploaded files open in Include or Exclude, depending on where their unmatched
+traffic goes.
 
 ## How to import into Hiddify
 
 1. Build your rules on the page.
 2. Either
-   - click **Download route_rules.json**, then in Hiddify go to **Settings → Routing → ⋮ → import from file**, or
-   - click **Open in Hiddify** (or **Copy import link**, then **⋮ → import from clipboard**). Hiddify asks before replacing your rules.
+   - click **Add to Hiddify** on the device where Hiddify is installed; Hiddify opens and asks before replacing your rules, or
+   - click **Download rules**, then in Hiddify go to **Settings → Routing → ⋮ → import from file**.
 3. Reconnect from Hiddify's Home page.
 
 Importing replaces all your routing rules. To change rules you already have, export them from Hiddify
-first (**⋮ → export to file**) and use **Load my rules** on the page.
+first (**⋮ → export to file**) and use **Upload rules** on the page.
 
 ## How Hiddify reads the rules
 
@@ -53,7 +56,7 @@ These details come from the [hiddify-app](https://github.com/hiddify/hiddify-app
   name. On import Hiddify fills in their content itself, which differs between Windows and Android, and keeps
   only their on/off switch and position. The page therefore writes only those.
 - **Bypass region** only exists when a region other than *Other* is selected in Hiddify. Pakistan isn't one
-  of Hiddify's regions; use the *Pakistan direct* preset instead.
+  of Hiddify's regions; pick *Pakistan* under Countries (and Pakistani networks) in Exclude mode instead.
 - **"Everything else → Direct"** can't be set in Hiddify (its *Default proxy* only picks between VPN
   servers, and unmatched traffic always goes to the VPN). The page adds two catch-all rules at the end
   instead: domain regex `.*` → Direct, which also sends those names to the direct DNS, and ports
@@ -74,7 +77,7 @@ These details come from the [hiddify-app](https://github.com/hiddify/hiddify-app
 ```
 .github/workflows/sync.yml   daily at 03:17 UTC: test, build the list index, deploy the page
 scripts/build-index.mjs      lists the upstream branches and mirrors the geoip-* IP lists
-data/catalog.json            hand-kept: popular picks, Pakistan networks, presets
+data/catalog.json            hand-kept: services, Pakistan networks
 public/                      the page (plain HTML, CSS and JavaScript, no build step)
 public/lib/hiddify.js        turns the choices into Hiddify's file format and import link
 test/                        checks the output against real exports from Hiddify (Windows and Android)
@@ -92,7 +95,7 @@ node scripts/build-index.mjs      # fetch the lists (a few seconds)
 npx serve public                  # open the address it prints
 ```
 
-## Change the popular picks or presets
+## Change the services or Pakistan networks
 
-Edit `data/catalog.json`. Names must match the upstream list names (the page's *Sites* tab shows them);
+Edit `data/catalog.json`. Names must match the upstream list names (the page's *Websites* tab shows them);
 the daily build checks every name and drops ones that don't exist, listing them in the Action's log.

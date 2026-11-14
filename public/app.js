@@ -180,11 +180,11 @@ function itemLabel(item) {
       return name ? `${name} · AS${item.n}` : `AS${item.n}`;
     }
     case 'service': return `${item.n[0].toUpperCase()}${item.n.slice(1)} IPs`;
-    case 'block': return item.n.replace(/^geo(site|ip)-/, '');
+    case 'block': return `${blockName(item.n)}${item.n.startsWith('geoip') ? ' IPs' : ''}`;
     case 'url': return item.n.split('/').pop();
     default: {
       const f = index.featured.find((x) => x.site[0] === item.n);
-      return f ? f.label : item.n;
+      return f ? f.label : SITE_LABEL[item.n] || item.n;
     }
   }
 }
@@ -212,8 +212,11 @@ const nothingUsesVpn = () => {
 
 // ---------- icons: service favicons and country flags ----------
 
-const FAVICON = (domain) => `https://icons.duckduckgo.com/ip3/${domain}.ico`;
-const FAVICON_2 = (domain) => `https://www.google.com/s2/favicons?domain=${domain}&sz=64`;
+const FAVICON = (domain) => `https://www.google.com/s2/favicons?domain=${domain}&sz=64`;
+const FAVICON_2 = (domain) => `https://icons.duckduckgo.com/ip3/${domain}.ico`;
+// website lists shown under a friendlier name, and logos for lists no service covers
+const SITE_LABEL = { wikimedia: 'wikipedia' };
+const SITE_DOMAIN = { wikimedia: 'wikipedia.org' };
 const BLOCK_ICON = (n) => (n.includes('ads') ? 'i-megaphone' : n.includes('malware') ? 'i-bug' : n.includes('phishing') ? 'i-hook' : n.includes('crypto') ? 'i-cpu' : 'i-shield-off');
 
 function itemDomain(item) {
@@ -228,6 +231,8 @@ function visual({ flag, domain, letter }) {
   return `<span class="letter" aria-hidden="true">${escapeHtml((letter || '?')[0].toUpperCase())}</span>`;
 }
 
+/** AdBlock lists by a readable name: geosite-category-ads-all -> Ads, geoip-malware -> Malware. */
+const blockName = (n) => { const b = n.replace(/^geo(site|ip)-/, '').replace(/^category-/, '').replace(/-all$/, ''); return b[0].toUpperCase() + b.slice(1); };
 const blockVisual = (n) => `<span class="letter block-ic" aria-hidden="true">${icon(BLOCK_ICON(n))}</span>`;
 
 function itemVisual(item) {
@@ -311,7 +316,8 @@ function allEntries() {
   services.sort((a, b) => az(a.group, b.group) || az(a.label, b.label));
   out.push(...services);
   for (const [n, src] of index.sites) {
-    out.push({ tab: 'sites', label: n, meta: src === 'm' ? 'MetaCubeX' : '', visual: siteDomains.has(n) ? visual({ domain: siteDomains.get(n), letter: n }) : '', items: [{ kind: 'site', n }], search: n });
+    const label = SITE_LABEL[n] || n;
+    out.push({ tab: 'sites', label, meta: src === 'm' ? 'MetaCubeX' : '', visual: siteDomains.has(n) ? visual({ domain: siteDomains.get(n), letter: label }) : visual({ letter: label }), items: [{ kind: 'site', n }], search: label === n ? n : `${label} ${n}` });
   }
   const countries = [...index.countries].sort((a, b) => az(countryName(a), countryName(b)));
   for (const c of countries) {
@@ -322,10 +328,9 @@ function allEntries() {
       out.push({ tab: 'asn', group: g.group, visual: visual({ flag: 'pk' }), label: a.label, meta: `AS${a.asn}`, items: [{ kind: 'asn', n: String(a.asn), label: a.label, cc: 'PK' }], search: `as${a.asn} ${a.asn} ${a.label}` });
     }
   }
-  const blockName = (b) => b.replace(/^geo(site|ip)-/, '');
   const blocks = [...index.block].sort((a, b) => az(blockName(a), blockName(b)) || (a.startsWith('geoip') ? 1 : -1));
   for (const b of blocks) {
-    out.push({ tab: 'block', visual: blockVisual(b), label: blockName(b), meta: b.startsWith('geoip') ? 'IP list' : 'domains', items: [{ kind: 'block', n: b }], search: b });
+    out.push({ tab: 'block', visual: blockVisual(b), label: blockName(b), meta: b.startsWith('geoip') ? 'IP list' : 'domains', items: [{ kind: 'block', n: b }], search: `${blockName(b)} ${b}` });
   }
   return out;
 }
@@ -399,7 +404,7 @@ function renderLibrary() {
     entries = entries.sort((a, b) => score(a) - score(b) || ipOnly(a) - ipOnly(b));
     if (tab === 'asn') entries.push(...networkMatches(q));
   } else if (tab === 'sites') {
-    entries = POPULAR_SITES.map((n) => entries.find((e) => e.label === n)).filter(Boolean);
+    entries = POPULAR_SITES.map((n) => entries.find((e) => e.items[0].n === n)).filter(Boolean);
   }
   const list = $('#list');
   const scroll = list.scrollTop;
@@ -1053,7 +1058,7 @@ async function start() {
     return;
   }
   siteSource = new Map(index.sites);
-  siteDomains = new Map(index.featured.filter((f) => f.domain).flatMap((f) => f.site.map((n) => [n, f.domain])));
+  siteDomains = new Map([...Object.entries(SITE_DOMAIN), ...index.featured.filter((f) => f.domain).flatMap((f) => f.site.map((n) => [n, f.domain]))]);
   state = load();
 
   let searchTimer;
@@ -1089,14 +1094,12 @@ async function start() {
   $('#mode').onclick = (e) => { const b = e.target.closest('button'); if (b) setMode(b.dataset.value); };
   radioKeys($('#mode'), (b) => setMode(b.dataset.value));
 
-  $('#reset').onclick = async () => {
-    if (await confirmDialog('Back to Hiddify’s defaults?', 'Clears your choices: built-in rules as Hiddify ships them, split tunneling off, everything through the VPN.', 'Reset')) {
-      state = defaultState();
-      openConditions.clear();
-      render();
-      toast('Back to Hiddify’s defaults');
-    }
+  $('#reset').onclick = () => {
+    state = defaultState();
+    openConditions.clear();
+    render();
   };
+  $('#addHiddify').onclick = () => { location.href = toImportLink(toBuilderState()); };
 
   $('#download').onclick = download;
   $('#sourcesBtn').onclick = () => $('#sourcesDialog').showModal();
