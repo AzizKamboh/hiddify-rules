@@ -9,7 +9,6 @@
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, existsSync, readFileSync, writeFileSync, rmSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
-import { gunzipSync } from 'node:zlib';
 import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -69,41 +68,6 @@ async function download(url, dest) {
       await new Promise((r) => setTimeout(r, 2000 * attempt));
     }
   }
-}
-
-/**
- * Network names and countries from iptoasn.com (public domain, updated hourly), kept only for networks
- * MetaCubeX has a list for. Env IP2ASN_FILE points at a local copy (plain or .gz) instead.
- * Returns the number of names written, or 0 when the file can't be had (the page then shows numbers only).
- */
-async function buildAsnNames(asnSet, dest) {
-  let buf;
-  try {
-    if (process.env.IP2ASN_FILE) buf = readFileSync(process.env.IP2ASN_FILE);
-    else {
-      const res = await fetch('https://iptoasn.com/data/ip2asn-v4.tsv.gz', { headers: { 'user-agent': 'hiddify-rules (github.com/AzizKamboh/hiddify-rules)' } });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      buf = Buffer.from(await res.arrayBuffer());
-    }
-    if (buf[0] === 0x1f && buf[1] === 0x8b) buf = gunzipSync(buf);
-  } catch (err) {
-    console.warn(`network names skipped: ${err.message}`);
-    return 0;
-  }
-  // columns: range_start, range_end, AS_number, country_code, AS_description
-  const names = new Map();
-  for (const line of buf.toString('utf8').split('\n')) {
-    const cols = line.split('\t');
-    if (cols.length < 5) continue;
-    const asn = Number(cols[2]);
-    if (!asn || names.has(asn) || !asnSet.has(asn)) continue;
-    const cc = /^[A-Z]{2}$/.test(cols[3]) ? cols[3] : '';
-    const name = cols[4].replace(/[\t\r]/g, ' ').trim();
-    if (name && name !== 'Not routed') names.set(asn, [cc, name]);
-  }
-  const rows = [...names].sort((a, b) => a[0] - b[0]).map(([asn, [cc, name]]) => `${asn}\t${cc}\t${name}`);
-  writeFileSync(dest, rows.join('\n') + '\n');
-  return rows.length;
 }
 
 async function main() {
@@ -166,13 +130,9 @@ async function main() {
   }
 
   mkdirSync(join(publicDir, 'data'), { recursive: true });
-  const nameCount = await buildAsnNames(new Set(mcAsns), join(publicDir, 'data/asn-names.tsv'));
-  if (nameCount) console.log(`network names: ${nameCount}`);
 
   const index = {
     generated: new Date().toISOString(),
-    asnNames: nameCount ? 'data/asn-names.tsv' : null,
-    asnNamesSource: nameCount ? { name: 'iptoasn.com', updated: new Date().toISOString() } : null,
     pagesUrl,
     sources: Object.fromEntries(Object.entries(SOURCES).map(([k, v]) => [k, {
       ...v, updated: lists[k].updated, commit: lists[k].commit,

@@ -220,18 +220,9 @@
       "domain": "perplexity.ai"
     },
     {
-      "group": "AI",
-      "id": "category-ai-!cn",
-      "label": "All AI services",
-      "site": [
-        "category-ai-!cn"
-      ],
-      "ip": []
-    },
-    {
       "group": "Big platforms",
       "id": "google",
-      "label": "Google (all)",
+      "label": "Google",
       "site": [
         "google"
       ],

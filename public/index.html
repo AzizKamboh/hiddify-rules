@@ -58,6 +58,10 @@
       <symbol id="i-network" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="5" rx="1"/><rect x="3" y="16" width="6" height="5" rx="1"/><rect x="15" y="16" width="6" height="5" rx="1"/><path d="M12 8v4M6 16v-2h12v2"/></symbol>
       <symbol id="i-shield-off" viewBox="0 0 24 24"><path d="M12 3 5 6v5c0 4.5 3 8.3 7 10 4-1.7 7-5.5 7-10V6l-7-3Z"/><path d="m9.5 9.5 5 5M14.5 9.5l-5 5"/></symbol>
       <symbol id="i-layers" viewBox="0 0 24 24"><path d="m12 3 9 5-9 5-9-5 9-5Z"/><path d="m3 13 9 5 9-5"/></symbol>
+      <symbol id="i-megaphone" viewBox="0 0 24 24"><path d="M4 10v4a1 1 0 0 0 1 1h3l6 4V5L8 9H5a1 1 0 0 0-1 1Z"/><path d="M18 9a4 4 0 0 1 0 6"/></symbol>
+      <symbol id="i-bug" viewBox="0 0 24 24"><rect x="8" y="7" width="8" height="12" rx="4"/><path d="M12 7V5M9.5 5.5 8 4M14.5 5.5 16 4M8 11H4M16 11h4M8 15H5M16 15h3"/></symbol>
+      <symbol id="i-hook" viewBox="0 0 24 24"><path d="M17 4v9a5 5 0 0 1-10 0v-2"/><path d="m7 11-2.5 2.5M7 11l2.5 2.5"/><circle cx="17" cy="4" r="1"/></symbol>
+      <symbol id="i-cpu" viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="1.5"/><path d="M10 3v4M14 3v4M10 17v4M14 17v4M3 10h4M3 14h4M17 10h4M17 14h4"/></symbol>
       <symbol id="i-list" viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01"/></symbol>
     </defs>
   </svg>
@@ -96,7 +100,6 @@
           <h2 id="libTitle" class="pane-title">Apps &amp; sites</h2>
           <span class="pane-sub">Services, sites, countries and networks</span>
         </div>
-        <div class="target lib-target" id="libTarget" aria-live="polite"></div>
         <div class="tabs" id="tabs" role="tablist" aria-label="List categories"></div>
         <label class="search">
           <svg class="ic"><use href="#i-search"/></svg>
@@ -110,14 +113,15 @@
 
     <section class="pane rules" aria-labelledby="splitTitle">
       <div class="pane-head split-head">
-        <div class="split-title-row">
-          <h2 id="splitTitle" class="pane-title">Split tunneling<button type="button" class="tip mode-tip" id="modeTip" aria-label="About this mode"><svg class="ic"><use href="#i-info"/></svg></button></h2>
-          <div class="segmented mode" role="radiogroup" aria-label="Split tunneling mode" id="mode">
-            <button type="button" role="radio" data-value="exclude" title="What you pick bypasses the VPN">Exclude</button>
-            <button type="button" role="radio" data-value="include" title="Only what you pick uses the VPN">Include</button>
-          </div>
+        <div class="pane-title-row">
+          <h2 id="splitTitle" class="pane-title">Split tunneling</h2>
+          <span class="pane-sub">Choose what bypasses or uses the VPN</span>
         </div>
-                <div class="target" id="activeTarget" aria-live="polite"></div>
+        <div class="tabs mode-tabs" role="radiogroup" aria-label="Split tunneling mode" id="mode">
+          <button type="button" class="tab" role="radio" data-value="exclude"><svg class="ic"><use href="#i-direct"/></svg><span>Exclude</span></button>
+          <button type="button" class="tab" role="radio" data-value="include"><svg class="ic"><use href="#i-vpn"/></svg><span>Include</span></button>
+        </div>
+        <div class="mode-box" id="modeBox" aria-live="polite"></div>
       </div>
 
       <div class="rules-body" id="rulesBody">
