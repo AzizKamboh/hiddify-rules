@@ -66,8 +66,8 @@ These details come from the [hiddify-app](https://github.com/hiddify/hiddify-app
 - **IP lists named `geoip-*`**: Hiddify names each rule set after its file and leaves `geoip-*` files out
   of its DNS rules, since IP lists mean nothing to a DNS query. MetaCubeX's service and network IP lists
   are named `telegram.srs`, `AS17557.srs` and so on, so the daily job copies those to this site as
-  `sets/geoip-telegram.srs`, `sets/geoip-as17557.srs`… Networks outside the popular list link straight to
-  MetaCubeX.
+  `sets/geoip-telegram.srs`, `sets/geoip-as17557.srs`… — all 9 service lists and all ~83,000 networks
+  (about 6 MB together).
 - Hiddify downloads rule sets **through the VPN**, so they load once the VPN connects.
 
 ## Repository layout
