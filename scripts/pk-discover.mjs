@@ -61,7 +61,7 @@ const inSet = (h, set) => { const p = h.split('.'); for (let i = 0; i < p.length
 
 // ---------- filters ----------
 const SHARED = /(^|\.)(facebook|fb|twitter|x|instagram|youtube|youtu|linkedin|blogspot|wordpress|wix|wixsite|weebly|google|linktr|tiktok|github|medium|archive|wikipedia|t|bit|tinyurl|webs|yolasite|jimdo|geocities|tripod|angelfire|sites|carrd|notion|substack)\.(com|me|ee|org|io|co|ly|ws|site|so|be)$/;
-const CHEAP = /\.(vip|live|top|xyz|win|bet|club|life|today|link|pro|online|cc|ink|lol|mobi|rest|fit|best|im|games?|garden|gripe|surf|theater|mov|talk|blog|sex|porn|rich|run|icu|cyou|buzz|sbs|shop|store|site|space|fun|click|monster|quest|tk|ml|ga|cf|gq|pages\.dev|netlify\.app|vercel\.app|myshopify\.com|blogspot\.com|wordpress\.com|onrender\.com|herokuapp\.com)$/;
+const CHEAP = /\.(vip|live|top|xyz|win|bet|club|life|today|link|pro|online|cc|ink|lol|mobi|rest|fit|best|im|games?|garden|gripe|surf|theater|mov|talk|blog|sex|porn|rich|run|icu|cyou|buzz|sbs|shop|store|site|space|fun|click|monster|quest|tk|ml|ga|cf|gq|pages\.dev|netlify\.app|vercel\.app|myshopify\.com|blogspot\.com|wordpress\.com|onrender\.com|herokuapp\.com|web\.app|base44\.app|20m\.com|synthasite\.com|nichesite\.org)$/;
 const WORDS = /(pkr|pay|bet|casino|exch|lottery|lucky|jackpot|slot|satta|akra|lasbela|aviator|spin|rummy|teen-?patti|xxx|porn|sex|fap|nude|leak|viral|mms|uncut|chudai|lingerie|movie|bolly|film|hdhub|anime|torrent|1337|pirate|crack|getinto|apk|mod|profit|earn|forex|crypto|trade|invest|loan|cashier|payin|wpay|smm|follower|siminfo|cnic|\d{3,})/;
 const FOREIGN_TLD = (h) => { const t = h.split('.').at(-1); return t.length === 2 && t !== 'pk'; };
 const SKIP_TYPES = /embassy|consulate|diplomatic|international organization|intergovernmental|united nations|human settlement|city|town|village|tehsil|union council|district|neighbou?rhood|mountain|river|lake|valley|island/i;
@@ -175,6 +175,7 @@ async function main() {
     const d = h;
     if (known(d)) continue;
     let why = reject(d);
+    if (!why && mainDomain(d) !== d) why = 'subdomain (often a free host or a global site)';
     if (!why && [...types].some((t) => SKIP_TYPES.test(t))) why = 'embassy, place or international body';
     if (!why && (global.get(d) ?? Infinity) <= 100000 && !((pk.get(d) ?? Infinity) * 10 <= (global.get(d) ?? Infinity))) why = 'popular worldwide, not mainly in Pakistan';
     if (why) { skipped[why] = (skipped[why] || 0) + 1; continue; }
