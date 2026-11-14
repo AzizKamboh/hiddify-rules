@@ -10,7 +10,7 @@ const STORE_KEY = 'hiddify-rules-builder:v1';           // saved state (older sa
 const THEME_KEY = 'hiddify-rules-builder:theme';        // light | dark | system
 const LIST_LIMIT = 250;
 
-const KIND_LABEL = { site: 'sites', country: 'country', service: 'IP ranges', asn: 'network', block: 'block list', url: 'custom' };
+const KIND_LABEL = { pk: 'sites', site: 'sites', country: 'country', service: 'IP ranges', asn: 'network', block: 'block list', url: 'custom' };
 const OUT = {
   proxy: { label: 'VPN', icon: 'i-vpn', plain: 'through the VPN' },
   direct: { label: 'Direct', icon: 'i-direct', plain: 'direct via your ISP' },
@@ -101,12 +101,33 @@ function tagCount(items) {
  * Picks as rows: each popular service picked whole is one row (services may share a list, e.g.
  * WhatsApp and Instagram both use the Facebook IP list), every other list is a row of its own.
  */
+/**
+ * Groups of lists picked together as one choice: the popular services, and "Everything in Pakistan"
+ * (Pakistani websites, the Pakistan country IP list and the Pakistan networks).
+ */
+let bundleCache = null;
+function bundles() {
+  if (bundleCache) return bundleCache;
+  bundleCache = index.featured.map((f) => ({
+    cat: 'services', label: f.label, kind: describeFeatured(f), visual: visual({ domain: f.domain, letter: f.label }), items: featuredItems(f),
+  }));
+  if ((index.pakistan || []).length) bundleCache.push({ cat: 'services', label: PK_BUNDLE, kind: 'sites + country + networks', visual: visual({ flag: 'pk' }), items: pkBundleItems() });
+  return bundleCache;
+}
+const PK_BUNDLE = 'Everything in Pakistan';
+function pkBundleItems() {
+  return [
+    { kind: 'pk', n: 'all' }, { kind: 'country', n: 'pk' },
+    ...index.asnGroups.flatMap((g) => g.items.map((a) => ({ kind: 'asn', n: String(a.asn), label: a.label, cc: 'PK' }))),
+  ];
+}
+
 function groupPicks(items) {
   const keys = new Set(items.map(itemKey));
   const covered = new Set();
   const rows = [];
-  for (const f of index.featured) {
-    const fi = featuredItems(f);
+  for (const f of bundles()) {
+    const fi = f.items;
     if (!fi.length || !fi.every((i) => keys.has(itemKey(i))) || fi.every((i) => covered.has(itemKey(i)))) continue;
     fi.forEach((i) => covered.add(itemKey(i)));
     rows.push({ featured: f, members: items.filter((i) => fi.some((x) => itemKey(x) === itemKey(i))) });
@@ -120,8 +141,8 @@ function neededByOthers(bucket, removing) {
   const gone = new Set(removing.map(itemKey));
   const keys = new Set(bucket.map(itemKey));
   const keep = new Set();
-  for (const f of index.featured) {
-    const fi = featuredItems(f).map(itemKey);
+  for (const f of bundles()) {
+    const fi = f.items.map(itemKey);
     const same = fi.length === gone.size && fi.every((k) => gone.has(k));
     if (!same && fi.length && fi.every((k) => keys.has(k))) fi.forEach((k) => keep.add(k));
   }
@@ -146,6 +167,7 @@ function itemUrl(item) {
     case 'site': return fill(siteSource.get(item.n) === 'm' ? u.site_m : u.site_s);
     case 'country': return fill(u.country);
     case 'service': return fill(u.service);
+    case 'pk': return fill(u.pk);
     case 'asn': return fill(index.allAsnsMirrored || index.mirroredAsns.includes(Number(item.n)) ? u.asn_mirror : u.asn);
     case 'block': return fill(u.block);
     default: return item.n;
@@ -156,9 +178,10 @@ function urlToItem(url) {
   const u = index.urls;
   const tries = [
     ['site', u.site_s], ['site', u.site_m], ['country', u.country], ['service', u.service],
-    ['asn', u.asn_mirror], ['asn', u.asn], ['block', u.block],
+    ['asn', u.asn_mirror], ['asn', u.asn], ['block', u.block], ['pk', u.pk],
   ];
   for (const [kind, tpl] of tries) {
+    if (!tpl) continue;
     const [pre, post] = tpl.split('{n}');
     if (url.startsWith(pre) && url.endsWith(post)) {
       const n = url.slice(pre.length, url.length - post.length);
@@ -184,6 +207,10 @@ function itemLabel(item) {
     case 'service': return `${item.n[0].toUpperCase()}${item.n.slice(1)} IPs`;
     case 'block': return `${blockName(item.n)}${item.n.startsWith('geoip') ? ' IPs' : ''}`;
     case 'url': return item.n.split('/').pop();
+    case 'pk': {
+      const label = (index.pakistan || []).find((l) => l.id === item.n)?.label || item.n;
+      return label.startsWith('Pakistan') ? label : `Pakistani ${label[0].toLowerCase()}${label.slice(1)}`;
+    }
     default: {
       const f = index.featured.find((x) => x.site[0] === item.n);
       return f ? f.label : siteLabel(item.n);
@@ -252,6 +279,7 @@ const blockVisual = (n) => `<span class="letter block-ic" aria-hidden="true">${i
 function itemVisual(item) {
   if (item.kind === 'country') return visual({ flag: item.n });
   if (item.kind === 'block') return blockVisual(item.n);
+  if (item.kind === 'pk') return visual({ flag: 'pk' });
   if (item.kind === 'asn') {
     const cc = asnNames?.get(String(item.n))?.cc || item.cc;
     return cc ? visual({ flag: cc.toLowerCase() }) : visual({ letter: 'N' });
@@ -328,6 +356,16 @@ function allEntries() {
     services.push({ tab: 'services', group: IP_GROUP, visual: visual({ domain: index.serviceDomains?.[s], letter: s }), label: `${s[0].toUpperCase()}${s.slice(1)} IP ranges`, meta: 'IPs only', items: [{ kind: 'service', n: s }], search: `${s} ip` });
   }
   services.sort((a, b) => az(a.group, b.group) || az(a.label, b.label));
+  // Pakistan first: the page is mostly used from Pakistan
+  for (const [i, l] of (index.pakistan || []).entries()) {
+    if (i === 0) {
+      out.push({ tab: 'services', group: 'Pakistan', visual: visual({ flag: 'pk' }), label: PK_BUNDLE, meta: 'sites + country + networks', items: pkBundleItems(),
+        title: 'Pakistani websites, Pakistan’s country IP list and the Pakistan networks together', search: `${PK_BUNDLE} pakistan pk local` });
+    }
+    out.push({ tab: 'services', group: 'Pakistan', visual: visual({ flag: 'pk' }), label: l.label,
+      meta: l.allPk ? `.pk + ${fmtCount(l.count)} sites` : `${fmtCount(l.count)} sites`, items: [{ kind: 'pk', n: l.id }],
+      title: `For example: ${l.examples.join(', ')} — full lists: github.com/AzizKamboh/hiddify-rules/blob/main/data/pakistan.txt`, search: `${l.label} pakistan pk ${l.examples.join(' ')}` });
+  }
   out.push(...services);
   for (const [n, src] of index.sites) {
     const label = siteLabel(n);
@@ -369,7 +407,7 @@ function networkMatches(q) {
 }
 
 function renderTabs() {
-  const counts = { services: index.featured.length + index.counts.services, sites: index.counts.sites, countries: index.counts.countries, asn: index.counts.asns, block: index.counts.block };
+  const counts = { services: index.featured.length + (index.pakistan || []).length + 1 + index.counts.services, sites: index.counts.sites, countries: index.counts.countries, asn: index.counts.asns, block: index.counts.block };
   const el = $('#tabs');
   const focused = document.activeElement?.closest?.('#tabs') ? document.activeElement.dataset.tab : null;
   el.innerHTML = '';
@@ -439,7 +477,7 @@ function renderLibrary() {
     list.insertAdjacentHTML('beforeend', `<p class="list-hint">Search ${fmtCount(index.counts.sites)} websites by name, e.g. “youtube”, “netflix”, “github”.</p>`);
   }
   shownEntries = entries.slice(0, LIST_LIMIT);
-  const picked = picksInCategory([...state.picks, ...state.blocked], tab).length;
+  const picked = tagCount(picksInCategory(state.picks, tab)) + tagCount(picksInCategory(state.blocked, tab));
   $('#selectAll').disabled = !shownEntries.length || shownEntries.every((e) => isPicked(e.items));
   $('#clearCat').disabled = !picked;
   $('#pickedHere').textContent = picked ? `${fmtCount(picked)} picked here` : '';
@@ -470,6 +508,7 @@ function entryButton(e) {
   b.setAttribute('aria-pressed', String(on));
   b.innerHTML = `<span class="check">${icon('i-check')}</span>${e.visual || ''}<span class="name">${escapeHtml(e.label)}</span>`
     + (e.meta ? `<span class="meta">${escapeHtml(e.meta)}</span>` : '');
+  if (e.title) b.title = e.title;
   b.onclick = () => toggleItems(e.items, !on);
   return b;
 }
@@ -505,14 +544,14 @@ function outBadge(out) {
 const POPULAR_SITES = ['youtube', 'google', 'facebook', 'instagram', 'whatsapp', 'tiktok', 'netflix', 'twitter', 'telegram', 'wikimedia'];
 
 const CATEGORY_ORDER = [['services', 'Services'], ['countries', 'Countries'], ['sites', 'Websites'], ['asn', 'Networks'], ['block', 'AdBlock'], ['url', 'Other']];
-const KIND_CATEGORY = { service: 'services', country: 'countries', site: 'sites', asn: 'asn', block: 'block', url: 'url' };
+const KIND_CATEGORY = { pk: 'services', service: 'services', country: 'countries', site: 'sites', asn: 'asn', block: 'block', url: 'url' };
 
 /** Picked items of a category, for its count and Clear (a whole popular service counts as Services). */
 function picksInCategory(items, cat) {
-  const used = new Set(groupPicks(items).filter((r) => r.featured).flatMap((r) => r.members.map(itemKey)));
+  const bundleCat = new Map(groupPicks(items).filter((r) => r.featured).flatMap((r) => r.members.map((m) => [itemKey(m), r.featured.cat])));
   // a website list stays a Websites pick even when it also completes a service
   if (cat === 'sites') return items.filter((i) => i.kind === 'site');
-  return items.filter((i) => (used.has(itemKey(i)) ? 'services' : KIND_CATEGORY[i.kind] || 'url') === cat);
+  return items.filter((i) => (bundleCat.get(itemKey(i)) || KIND_CATEGORY[i.kind] || 'url') === cat);
 }
 
 /** Select all: ticks every list shown in the category (search results when searching). */
@@ -537,7 +576,7 @@ function clearCategory() {
 /** Picks as a list grouped by category; a popular service picked whole counts as one Services row. */
 function groupedList(items, remove, lead, flat = false) {
   const rows = groupPicks(items).map(({ featured: f, members }) => (f
-    ? { cat: 'services', label: f.label, kind: describeFeatured(f), visual: visual({ domain: f.domain, letter: f.label }), members }
+    ? { cat: f.cat, label: f.label, kind: f.kind, visual: f.visual, members }
     : (([item]) => ({ cat: KIND_CATEGORY[item.kind] || 'url', label: itemLabel(item), kind: item.kind === 'service' ? 'IP ranges' : item.kind === 'block' ? (item.n.startsWith('geoip') ? 'IP list' : 'domains') : '', visual: itemVisual(item), members }))(members)));
   const wrap = document.createElement('div');
   wrap.className = 'picks';
