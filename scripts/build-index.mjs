@@ -154,7 +154,7 @@ async function buildPakistan(problems) {
   const out = [];
   const nonPk = all.filter((d) => alive.get(d) && !d.endsWith('.pk'));
   write('all', ['.pk', ...nonPk]);
-  out.push({ id: 'all', label: 'Pakistani websites (all)', count: nonPk.length, allPk: true, examples: ['every .pk site', ...nonPk.slice(0, 5)] });
+  out.push({ id: 'all', label: 'Pakistani websites', count: nonPk.length, allPk: true, examples: ['every .pk site', ...nonPk.slice(0, 5)], domains: nonPk });
   for (const l of lists) {
     const domains = l.domains.filter((d) => alive.get(d));
     if (!domains.length) continue;
