@@ -27,6 +27,9 @@ jobs:
         with:
           node-version: 22
 
+      - name: Try Wikidata (temporary)
+        run: node scripts/try-wikidata.mjs
+
       - name: Test the generator
         run: npm test
 
