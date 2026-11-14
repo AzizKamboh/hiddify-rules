@@ -33,6 +33,14 @@ jobs:
       - name: Build the list index and mirror IP lists
         run: node scripts/build-index.mjs
 
+      - name: Version the script and style URLs
+        # browsers cache Pages files for ~10 minutes; a new URL per deploy keeps
+        # the page, script and styles from the same version together
+        run: |
+          v="${GITHUB_SHA::7}-$(date -u +%Y%m%d%H%M)"
+          sed -i "s/__BUILD__/$v/g" public/index.html public/app.js
+          grep -c "$v" public/index.html public/app.js
+
       - name: Upload site
         if: github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v3

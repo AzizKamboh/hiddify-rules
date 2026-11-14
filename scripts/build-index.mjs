@@ -153,6 +153,7 @@ async function main() {
     featured,
     asnGroups,
     presets: catalog.presets,
+    serviceDomains: catalog.serviceDomains || {},
     problems,
   };
 
