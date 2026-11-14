@@ -1,0 +1,10 @@
+# Sites never to add to data/pakistan.txt, even if the monthly discovery (scripts/pk-discover.mjs)
+# suggests them: not Pakistani, or not wanted. One domain per line; a domain covers its subdomains.
+rekhta.org
+rekhtadictionary.com
+nestle.com
+payoneer.com
+beforward.jp
+goethe.de
+hilton.com
+who.int

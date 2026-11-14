@@ -54,6 +54,17 @@ publishes the list as `sets/geosite-pk-all.json` (each section also as `sets/geo
 leaves out domains that no longer exist (listed in the Action's log). To add a site, edit `data/pakistan.txt`
 on GitHub.
 
+**Monthly discovery** (`.github/workflows/pk-discover.yml`, on the 15th): `scripts/pk-discover.mjs`
+- adds, automatically, websites that [Wikidata](https://www.wikidata.org) lists for Pakistani
+  organisations (into the `[auto]` section), after the filters below and a check that they exist;
+- opens an issue listing sites that are much more popular in Pakistan than worldwide (Chrome UX Report
+  top lists) and not popular in India, Bangladesh or Nepal — for a person to review. Each site is
+  suggested once (`data/pakistan-seen.txt`).
+
+Both skip `.pk` sites, other countries' endings, sites on Hagezi's adult/gambling/scam/malware lists or
+v2fly's adult list, throwaway domains and betting/piracy/adult/scam names. Sites in
+`data/pakistan-exclude.txt` are never added or suggested. It can also be run from the Actions tab.
+
 ## How to import into Hiddify
 
 1. Build your rules on the page.
