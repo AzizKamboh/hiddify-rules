@@ -35,6 +35,10 @@ Exclude with nothing picked is exactly Hiddify's default: only the local network
 rule) bypasses the VPN. Uploaded files open in Include or Exclude, depending on where their unmatched
 traffic goes.
 
+Rules in an uploaded file that Include/Exclude can't show — typed domains, IPs, ports or apps, rules sending
+traffic the other way, switched-off rules, *Direct + fragment* — are kept exactly as they were in a
+**From your file** section, placed right after the built-ins in the downloaded file. Each can be removed.
+
 ## How to import into Hiddify
 
 1. Build your rules on the page.

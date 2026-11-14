@@ -1,5 +1,5 @@
 import {
-  toJsonFile, parseRouteRules, BUILTIN_DEFAULTS,
+  toRouteRule, parseRouteRules, BUILTIN_DEFAULTS,
 } from './lib/hiddify.js?v=__BUILD__';
 
 // ---------- constants ----------
@@ -56,7 +56,7 @@ let shownEntries = [];   // lists on screen in the library, for Select all
 
 /** Hiddify's own defaults: built-ins as shipped, nothing split, everything through the VPN. */
 function defaultState() {
-  return { builtins: { ...BUILTIN_DEFAULTS }, regionSet: false, mode: 'exclude', picks: [], blocked: [] };
+  return { builtins: { ...BUILTIN_DEFAULTS }, regionSet: false, mode: 'exclude', picks: [], blocked: [], kept: [] };
 }
 
 /** Turns a list of rules (from an old save or an uploaded file) into Include or Exclude picks. */
@@ -82,7 +82,7 @@ function load() {
     if (saved && saved.mode === 'advanced') return fromRules(saved);
     if (saved && saved.mode) {
       const d = defaultState();
-      const s = { builtins: { ...BUILTIN_DEFAULTS, ...(saved.builtins || {}) }, regionSet: Boolean(saved.regionSet), mode: MODES[saved.mode] ? saved.mode : d.mode, picks: saved.picks || [], blocked: saved.blocked || [] };
+      const s = { builtins: { ...BUILTIN_DEFAULTS, ...(saved.builtins || {}) }, regionSet: Boolean(saved.regionSet), mode: MODES[saved.mode] ? saved.mode : d.mode, picks: saved.picks || [], blocked: saved.blocked || [], kept: Array.isArray(saved.kept) ? saved.kept : [] };
       return s;
     }
     // a save from before split tunneling: numbered rules + "everything else"
@@ -94,15 +94,48 @@ function load() {
 const itemKey = (item) => `${item.kind}:${item.n}`;
 /** How many tags the picks show: a popular service picked whole (sites + IPs) counts once. */
 function tagCount(items) {
+  return groupPicks(items).length;
+}
+
+/**
+ * Picks as rows: each popular service picked whole is one row (services may share a list, e.g.
+ * WhatsApp and Instagram both use the Facebook IP list), every other list is a row of its own.
+ */
+function groupPicks(items) {
   const keys = new Set(items.map(itemKey));
-  let n = items.length;
+  const covered = new Set();
+  const rows = [];
   for (const f of index.featured) {
     const fi = featuredItems(f);
-    if (fi.length > 1 && fi.every((i) => keys.has(itemKey(i)))) n -= fi.length - 1;
+    if (!fi.length || !fi.every((i) => keys.has(itemKey(i))) || fi.every((i) => covered.has(itemKey(i)))) continue;
+    fi.forEach((i) => covered.add(itemKey(i)));
+    rows.push({ featured: f, members: items.filter((i) => fi.some((x) => itemKey(x) === itemKey(i))) });
   }
-  return n;
+  for (const item of items) if (!covered.has(itemKey(item))) rows.push({ featured: null, members: [item] });
+  return rows;
 }
-const pickCount = () => tagCount(state.picks) + tagCount(state.blocked);
+
+/** Lists that other popular services picked in `bucket` still need, so removing one service keeps them. */
+function neededByOthers(bucket, removing) {
+  const gone = new Set(removing.map(itemKey));
+  const keys = new Set(bucket.map(itemKey));
+  const keep = new Set();
+  for (const f of index.featured) {
+    const fi = featuredItems(f).map(itemKey);
+    const same = fi.length === gone.size && fi.every((k) => gone.has(k));
+    if (!same && fi.length && fi.every((k) => keys.has(k))) fi.forEach((k) => keep.add(k));
+  }
+  return keep;
+}
+
+/** Removes picks; when they make up a popular service, lists another picked service shares stay. */
+function removePicks(bucketKey, members) {
+  const keep = members.length > 1 ? neededByOthers(state[bucketKey], members) : new Set();
+  const gone = new Set(members.map(itemKey).filter((k) => !keep.has(k)));
+  state[bucketKey] = state[bucketKey].filter((x) => !gone.has(itemKey(x)));
+  render();
+}
+const pickCount = () => tagCount(state.picks) + tagCount(state.blocked) + state.kept.length;
 
 // ---------- lists → URLs ----------
 
@@ -444,7 +477,9 @@ function entryButton(e) {
 function toggleItems(items, add) {
   const isBlock = items.every((i) => i.kind === 'block');
   const bucket = bucketFor(items);
+  const keep = !add && items.length > 1 ? neededByOthers(bucket, items) : new Set();
   for (const item of items) {
+    if (keep.has(itemKey(item))) continue;
     const i = bucket.findIndex((x) => itemKey(x) === itemKey(item));
     if (i >= 0) bucket.splice(i, 1);
     if (add) bucket.push(item);
@@ -474,12 +509,7 @@ const KIND_CATEGORY = { service: 'services', country: 'countries', site: 'sites'
 
 /** Picked items of a category, for its count and Clear (a whole popular service counts as Services). */
 function picksInCategory(items, cat) {
-  const keys = new Set(items.map(itemKey));
-  const used = new Set();
-  for (const f of index.featured) {
-    const fi = featuredItems(f);
-    if (fi.every((i) => keys.has(itemKey(i)) && !used.has(itemKey(i)))) fi.forEach((i) => used.add(itemKey(i)));
-  }
+  const used = new Set(groupPicks(items).filter((r) => r.featured).flatMap((r) => r.members.map(itemKey)));
   // a website list stays a Websites pick even when it also completes a service
   if (cat === 'sites') return items.filter((i) => i.kind === 'site');
   return items.filter((i) => (used.has(itemKey(i)) ? 'services' : KIND_CATEGORY[i.kind] || 'url') === cat);
@@ -506,20 +536,9 @@ function clearCategory() {
 
 /** Picks as a list grouped by category; a popular service picked whole counts as one Services row. */
 function groupedList(items, remove, lead, flat = false) {
-  const keys = new Set(items.map(itemKey));
-  const used = new Set();
-  const rows = [];
-  for (const f of index.featured) {
-    const fi = featuredItems(f);
-    if (fi.every((i) => keys.has(itemKey(i)) && !used.has(itemKey(i)))) {
-      fi.forEach((i) => used.add(itemKey(i)));
-      rows.push({ cat: 'services', label: f.label, kind: describeFeatured(f), visual: visual({ domain: f.domain, letter: f.label }), members: items.filter((i) => fi.some((x) => itemKey(x) === itemKey(i))) });
-    }
-  }
-  for (const item of items) {
-    if (used.has(itemKey(item))) continue;
-    rows.push({ cat: KIND_CATEGORY[item.kind] || 'url', label: itemLabel(item), kind: item.kind === 'service' ? 'IP ranges' : item.kind === 'block' ? (item.n.startsWith('geoip') ? 'IP list' : 'domains') : '', visual: itemVisual(item), members: [item] });
-  }
+  const rows = groupPicks(items).map(({ featured: f, members }) => (f
+    ? { cat: 'services', label: f.label, kind: describeFeatured(f), visual: visual({ domain: f.domain, letter: f.label }), members }
+    : (([item]) => ({ cat: KIND_CATEGORY[item.kind] || 'url', label: itemLabel(item), kind: item.kind === 'service' ? 'IP ranges' : item.kind === 'block' ? (item.n.startsWith('geoip') ? 'IP list' : 'domains') : '', visual: itemVisual(item), members }))(members)));
   const wrap = document.createElement('div');
   wrap.className = 'picks';
   if (lead) wrap.append(lead);
@@ -586,16 +605,37 @@ function renderRoute() {
   }
   ol.append(section);
 
+  // rules from an uploaded file that Include/Exclude can't show; written back exactly as they were
+  if (state.kept.length) {
+    const list = document.createElement('ul');
+    list.className = 'pick-list';
+    state.kept.forEach((raw, i) => {
+      const out = KEPT_OUT[raw['4'] ?? 0] || 'proxy';
+      const li = document.createElement('li');
+      li.className = `pick${raw['2'] === false ? ' is-off' : ''}`;
+      li.innerHTML = `<span class="label">${escapeHtml(raw['3'] || 'Rule')}</span><span class="kind">${escapeHtml(keptSummary(raw))}</span>${outBadge(out)}<button type="button" class="iconbtn" aria-label="Remove ${escapeHtml(raw['3'] || 'rule')}">${icon('i-x')}</button>`;
+      $('button', li).onclick = () => { state.kept.splice(i, 1); render(); };
+      list.append(li);
+    });
+    const body = document.createElement('div');
+    body.className = 'picks';
+    body.append(list);
+    ol.append(routeRow({
+      n: ++n, title: 'From your file', key: 'kept', body,
+      desc: 'Rules from the uploaded file that can’t be shown as picks (typed domains, IPs, ports or apps, other directions, switched-off rules, fragment). They are kept exactly as they were.',
+    }));
+  }
+
     if (state.blocked.length) {
       ol.append(routeRow({
         n: ++n, title: 'AdBlock', out: 'block', key: 'blocked',
-        body: groupedList(state.blocked, (gone) => { state.blocked = state.blocked.filter((x) => !gone.includes(x)); render(); }, null, true),
+        body: groupedList(state.blocked, (gone) => removePicks('blocked', gone), null, true),
       }));
     }
     const m = MODES[state.mode];
     const body = document.createElement('div');
     if (state.picks.length) {
-      body.append(groupedList(state.picks, (gone) => { state.picks = state.picks.filter((x) => !gone.includes(x)); render(); }));
+      body.append(groupedList(state.picks, (gone) => removePicks('picks', gone)));
     } else {
       const p = document.createElement('p');
       p.className = 'route-empty';
@@ -672,7 +712,7 @@ function render(focusKey) {
 // ---------- actions ----------
 
 function download() {
-  const blob = new Blob([toJsonFile(toBuilderState())], { type: 'application/json' });
+  const blob = new Blob([fileText()], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = 'route_rules.json';
@@ -683,19 +723,69 @@ function download() {
   toast('route_rules.json downloaded', 'ok');
 }
 
+const KEPT_OUT = ['proxy', 'direct', 'direct_with_fragment', 'block'];
+// rule fields besides rule-set lists: 6 Android apps, 7 Windows apps, 8 app paths, 10 ports,
+// 13 IPs, 15–18 domains; anything else (network, source…) also means "keep as it was"
+const RAW_NAMES = { '5': 'list', '9': 'protocol', '6': 'app', '7': 'app', '8': 'app', '10': 'port', '13': 'IP', '15': 'domain', '16': 'domain', '17': 'domain', '18': 'domain' };
+
+function keptSummary(raw) {
+  const counts = {};
+  for (const [k, v] of Object.entries(raw)) {
+    if (['1', '2', '3', '4'].includes(k)) continue;
+    const name = RAW_NAMES[k] || 'condition';
+    counts[name] = (counts[name] || 0) + (Array.isArray(v) ? v.length : 1);
+  }
+  const parts = Object.entries(counts).map(([name, c]) => `${c} ${name}${c === 1 ? '' : 's'}`);
+  return [raw['2'] === false ? 'off' : '', ...parts].filter(Boolean).join(' · ');
+}
+
+/** The file to download: the generator's rules, with kept rules right after Hiddify's built-ins. */
+function fileText() {
+  const rules = toRouteRule(toBuilderState())['1'];
+  const at = rules.filter((r) => String(r['3']).startsWith('builtin:')).length;
+  rules.splice(at, 0, ...state.kept.map((raw) => ({ ...raw })));
+  return JSON.stringify({ '1': rules.map((r, i) => { const { '1': _, ...rest } = r; return { '1': i, ...rest }; }) });
+}
+
+/** Rules of a route_rules.json in Hiddify's order, without built-ins and the catch-all direct rules. */
+function rawUserRules(data) {
+  const isCatchAll = (raw) => {
+    const fields = Object.keys(raw).filter((k) => !['1', '2', '3', '4'].includes(k));
+    const only = (num, values) => fields.length === 1 && fields[0] === num && raw[num].length === 1 && values.includes(raw[num][0]);
+    return raw['4'] === 1 && raw['2'] !== false && (only('18', ['.*', '^.*$', '.+']) || only('10', ['1:65535', '0:65535', '1:65000']));
+  };
+  return [...(data['1'] || [])].sort((a, b) => (a['1'] ?? 0) - (b['1'] ?? 0))
+    .filter((raw) => !String(raw['3'] || '').startsWith('builtin:') && !isCatchAll(raw));
+}
+
 async function loadFile(file) {
   let parsed;
+  let raws;
   try {
-    parsed = parseRouteRules(await file.text());
+    const text = await file.text();
+    parsed = parseRouteRules(text);
+    raws = rawUserRules(JSON.parse(text));
   } catch (err) {
     console.warn(err);
     return toast(`“${file.name}” isn't a Hiddify route_rules.json`, 'err');
   }
-  const rules = parsed.rules.map((r) => ({ ...r, items: (r.ruleSets || []).map(urlToItem) }));
-  state = fromRules({ ...parsed, rules });
+  // a rule becomes picks only when Include/Exclude can show it without losing anything
+  const want = parsed.fallback === 'direct' ? 'proxy' : 'direct';
+  const other = ['packageNames', 'processNames', 'processPaths', 'portRanges', 'ipCidrs', 'domains', 'domainSuffixes', 'domainKeywords', 'domainRegexes'];
+  const simple = [];
+  const kept = [];
+  parsed.rules.forEach((r, i) => {
+    const items = (r.ruleSets || []).map(urlToItem);
+    const plain = r.enabled !== false && !r.extra && items.length && other.every((k) => !(r[k] || []).length)
+      && (r.outbound === 'block' ? items.every((it) => it.kind === 'block') : r.outbound === want);
+    if (plain) simple.push({ ...r, items });
+    else if (raws[i]) kept.push(raws[i]);
+  });
+  state = { ...fromRules({ ...parsed, rules: simple }), kept };
   render();
   setView('rules');
   toast(`Loaded ${file.name} — split tunneling: ${state.mode}`, 'ok');
+  if (kept.length) showNote(`${kept.length} rule${kept.length === 1 ? '' : 's'} from ${file.name} kept exactly as ${kept.length === 1 ? 'it was' : 'they were'} — see “From your file”.`);
 }
 
 // ---------- dialogs, toasts ----------

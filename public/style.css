@@ -479,6 +479,7 @@ select option { background: var(--surface); color: var(--text); }
   padding: 8px var(--s3); transition: border-color var(--t-fast), opacity var(--t-fast);
 }
 .route-row.is-off .route-title, .route-row.is-off .out-badge { opacity: .5; }
+.pick.is-off .label, .pick.is-off .out-badge { opacity: .5; }
 .route-row.flash { animation: flash 800ms var(--ease); }
 .route-head { display: flex; align-items: center; gap: 10px; min-height: 30px; }
 .route-title { flex: 1; min-width: 0; display: inline-flex; align-items: center; gap: 4px; font-weight: 550; }
