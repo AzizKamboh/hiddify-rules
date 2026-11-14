@@ -39,6 +39,14 @@ psx.com.pk
 cdcpakistan.com
 nccpl.com.pk
 mufap.com.pk
+bankalhabib.com
+konnecthbl.com
+upaisa.com
+ahlportal.com
+nrspbank.com
+sadapay.com
+efulife.com
+almeezangroup.com
 
 [gov] Government and education
 .gov.pk
@@ -47,6 +55,28 @@ nadra.gov.pk
 fbr.gov.pk
 hec.gov.pk
 ilmkidunya.com
+biselahore.com
+biselrk.com
+ajkbise.net
+pgc.edu
+aku.edu
+beaconhouse.net
+banoqabil.org
+nearpeer.org
+eskooly.com
+freeilm.com
+testpointpk.com
+pakmcqs.com
+paperpk.com
+mathcity.org
+pakistanlawsite.com
+icmainternational.com
+kitabnagri.org
+kitaabghar.com
+cmspakpost.com
+phppolice.com
+pphisindh.org
+siehs.org
 
 [news] News and TV
 dawn.com
@@ -73,6 +103,16 @@ ptv.com.pk
 hum.tv
 harpalgeo.tv
 arydigital.tv
+aryplus.tv
+geonewsurdu.tv
+ummat.net
+urdupoint.com
+city42.tv
+dailyausaf.com
+geosuper.tv
+a-sports.tv
+tensportstv.com
+mettisglobal.news
 
 [telecom] Telecom and internet
 ptcl.com.pk
@@ -88,12 +128,19 @@ cyber.net.pk
 worldcall.net.pk
 multinet.com.pk
 scom.com.pk
+ptclgroup.com
+ptclflashfiber.com
 
 [streaming] Streaming and music
 tamashaweb.com
 tapmad.com
 aryzap.com
 patari.pk
+myco.io
+cinepax.com
+cuecinemas.com
+universalcinemas.com
+nueplex.com
 
 [shopping] Shopping and food
 daraz.pk
@@ -115,6 +162,67 @@ bonanzasatrangi.com
 imtiaz.com.pk
 naheed.pk
 metro-online.pk
+alfatahfabrics.com
+asimjofa.com
+audionic.co
+bachaaparty.com
+bagallery.com
+edenrobe.com
+ethnc.com
+furorjeans.com
+iznikfashions.com
+laam.com
+lamaretail.com
+maryumnmaria.com
+minnieminors.com
+ndure.com
+nishatlinen.com
+salitexonline.com
+sanasafinaz.com
+sefam.com
+shopecs.com
+sokamal.com
+svestonwatches.com
+zerolifestyle.co
+shahzebsaeed.com
+jenpharm.com
+kfcpakistan.com
+adanslibas.com
+afrozeh.com
+aghanoorofficial.com
+bareeze.com
+beyondeast.com
+binsaeedfabric.com
+chenone.com
+chiltanpure.com
+zarashahjahan.com
+diamondfoam.com
+dynastyfabrics.com
+hemaniherbals.com
+habitt.com
+jafferjees.com
+kashees.com
+lakhanyonline.com
+lawrencepur.com
+libertybooks.com
+lulusar.com
+mohagni.com
+mushq.com
+thecambridgeshop.com
+uniworthshop.com
+vlektra.com
+walkeaze.com
+zeenwoman.com
+makeupcityshop.com
+masterpaints.com
+dgcement.com
+tclpakistan.com
+kababjeesbakers.com
+kababjeesfriedchicken.com
+cheezious.com
+alfamall.com
+kravemart.com
+qarshihealthshop.com
 
 [everyday] Rides, travel, property and jobs
 zameen.com
@@ -134,3 +242,26 @@ sehatkahani.com
 ke.com.pk
 sngpl.com.pk
 ssgc.com.pk
+airblue.com
+flyjinnah.com
+airsial.com
+faisalmovers.com
+bookkaru.com
+leopardscourier.com
+mulphilog.com
+tcscourier.com
+tcsexpress.com
+mnpcourier.com
+valenciapakistan.com
+suzukipakistan.com
+toyota-indus.com
+psopk.com
+chughtailab.com
+peekaboo.guru
+
+[community] Religion, charity and community
+dawateislami.net
+alkhidmat.org
+e-alhuda.com
+wifaqulmadaris.org
+readfoundation.org
