@@ -1,6 +1,7 @@
+import { toRouteRule, BUILTIN_DEFAULTS } from './lib/hiddify.js?v=__BUILD__';
 import {
-  toRouteRule, parseRouteRules, BUILTIN_DEFAULTS,
-} from './lib/hiddify.js?v=__BUILD__';
+  itemKey, groupPicks as groupPicksWith, neededByOthers as neededWith, withoutPicks, splitUpload, fileText as fileTextWith,
+} from './lib/picks.js?v=__BUILD__';
 
 // ---------- constants ----------
 
@@ -91,7 +92,6 @@ function load() {
   return defaultState();
 }
 
-const itemKey = (item) => `${item.kind}:${item.n}`;
 /** How many tags the picks show: a popular service picked whole (sites + IPs) counts once. */
 function tagCount(items) {
   return groupPicks(items).length;
@@ -123,37 +123,13 @@ function pkBundleItems() {
 }
 
 function groupPicks(items) {
-  const keys = new Set(items.map(itemKey));
-  const covered = new Set();
-  const rows = [];
-  for (const f of bundles()) {
-    const fi = f.items;
-    if (!fi.length || !fi.every((i) => keys.has(itemKey(i))) || fi.every((i) => covered.has(itemKey(i)))) continue;
-    fi.forEach((i) => covered.add(itemKey(i)));
-    rows.push({ featured: f, members: items.filter((i) => fi.some((x) => itemKey(x) === itemKey(i))) });
-  }
-  for (const item of items) if (!covered.has(itemKey(item))) rows.push({ featured: null, members: [item] });
-  return rows;
+  return groupPicksWith(items, bundles());
 }
 
-/** Lists that other popular services picked in `bucket` still need, so removing one service keeps them. */
-function neededByOthers(bucket, removing) {
-  const gone = new Set(removing.map(itemKey));
-  const keys = new Set(bucket.map(itemKey));
-  const keep = new Set();
-  for (const f of bundles()) {
-    const fi = f.items.map(itemKey);
-    const same = fi.length === gone.size && fi.every((k) => gone.has(k));
-    if (!same && fi.length && fi.every((k) => keys.has(k))) fi.forEach((k) => keep.add(k));
-  }
-  return keep;
-}
 
 /** Removes picks; when they make up a popular service, lists another picked service shares stay. */
 function removePicks(bucketKey, members) {
-  const keep = members.length > 1 ? neededByOthers(state[bucketKey], members) : new Set();
-  const gone = new Set(members.map(itemKey).filter((k) => !keep.has(k)));
-  state[bucketKey] = state[bucketKey].filter((x) => !gone.has(itemKey(x)));
+  state[bucketKey] = withoutPicks(state[bucketKey], members, bundles());
   render();
 }
 const pickCount = () => tagCount(state.picks) + tagCount(state.blocked) + state.kept.length;
@@ -516,7 +492,7 @@ function entryButton(e) {
 function toggleItems(items, add) {
   const isBlock = items.every((i) => i.kind === 'block');
   const bucket = bucketFor(items);
-  const keep = !add && items.length > 1 ? neededByOthers(bucket, items) : new Set();
+  const keep = !add && items.length > 1 ? neededWith(bucket, items, bundles()) : new Set();
   for (const item of items) {
     if (keep.has(itemKey(item))) continue;
     const i = bucket.findIndex((x) => itemKey(x) === itemKey(item));
@@ -642,6 +618,14 @@ function renderRoute() {
     $('input', row).onchange = (e) => { state.builtins[key] = e.target.checked; render(`b:${key}`); };
     $('.builtins-body', section).append(row);
   }
+  // Bypass region only exists in Hiddify when a region other than "Other" is set there (Pakistan is Other).
+  // Unticked, the file leaves the rule out and Hiddify keeps its own default for it.
+  const region = document.createElement('label');
+  region.className = 'region-line';
+  region.innerHTML = `<input type="checkbox" data-fk="b:region"><span>My Hiddify region isn’t “Other”</span><button type="button" class="tip" title="Tick if Hiddify’s Region setting is Iran, China, Russia, Afghanistan, Indonesia, Turkey or Brazil, to switch its Bypass region rule. Pakistan is “Other”: leave it unticked." aria-label="More about this">${icon('i-info')}</button>`;
+  $('input', region).checked = state.regionSet;
+  $('input', region).onchange = (e) => { state.regionSet = e.target.checked; if (state.regionSet) state.builtins.bypassRegion ??= true; render('b:region'); };
+  $('.builtins-body', section).append(region);
   ol.append(section);
 
   // rules from an uploaded file that Include/Exclude can't show; written back exactly as they were
@@ -665,26 +649,25 @@ function renderRoute() {
     }));
   }
 
-    if (state.blocked.length) {
-      ol.append(routeRow({
-        n: ++n, title: 'AdBlock', out: 'block', key: 'blocked',
-        body: groupedList(state.blocked, (gone) => removePicks('blocked', gone), null, true),
-      }));
-    }
-    const m = MODES[state.mode];
-    const body = document.createElement('div');
-    if (state.picks.length) {
-      body.append(groupedList(state.picks, (gone) => removePicks('picks', gone)));
-    } else {
-      const p = document.createElement('p');
-      p.className = 'route-empty';
-      p.textContent = state.mode === 'include'
-        ? 'Nothing picked yet — tick what should use the VPN on the left.'
-        : 'Nothing picked yet — tick what should skip the VPN on the left.';
-      body.append(p);
-    }
-    ol.append(routeRow({ n: ++n, title: m.row, out: m.out, key: 'picks', body }));
-
+  if (state.blocked.length) {
+    ol.append(routeRow({
+      n: ++n, title: 'AdBlock', out: 'block', key: 'blocked',
+      body: groupedList(state.blocked, (gone) => removePicks('blocked', gone), null, true),
+    }));
+  }
+  const m = MODES[state.mode];
+  const body = document.createElement('div');
+  if (state.picks.length) {
+    body.append(groupedList(state.picks, (gone) => removePicks('picks', gone)));
+  } else {
+    const p = document.createElement('p');
+    p.className = 'route-empty';
+    p.textContent = state.mode === 'include'
+      ? 'Nothing picked yet — tick what should use the VPN on the left.'
+      : 'Nothing picked yet — tick what should skip the VPN on the left.';
+    body.append(p);
+  }
+  ol.append(routeRow({ n: ++n, title: m.row, out: m.out, key: 'picks', body }));
 }
 
 function renderMode() {
@@ -779,47 +762,18 @@ function keptSummary(raw) {
 }
 
 /** The file to download: the generator's rules, with kept rules right after Hiddify's built-ins. */
-function fileText() {
-  const rules = toRouteRule(toBuilderState())['1'];
-  const at = rules.filter((r) => String(r['3']).startsWith('builtin:')).length;
-  rules.splice(at, 0, ...state.kept.map((raw) => ({ ...raw })));
-  return JSON.stringify({ '1': rules.map((r, i) => { const { '1': _, ...rest } = r; return { '1': i, ...rest }; }) });
-}
-
-/** Rules of a route_rules.json in Hiddify's order, without built-ins and the catch-all direct rules. */
-function rawUserRules(data) {
-  const isCatchAll = (raw) => {
-    const fields = Object.keys(raw).filter((k) => !['1', '2', '3', '4'].includes(k));
-    const only = (num, values) => fields.length === 1 && fields[0] === num && raw[num].length === 1 && values.includes(raw[num][0]);
-    return raw['4'] === 1 && raw['2'] !== false && (only('18', ['.*', '^.*$', '.+']) || only('10', ['1:65535', '0:65535', '1:65000']));
-  };
-  return [...(data['1'] || [])].sort((a, b) => (a['1'] ?? 0) - (b['1'] ?? 0))
-    .filter((raw) => !String(raw['3'] || '').startsWith('builtin:') && !isCatchAll(raw));
-}
+const fileText = () => fileTextWith(toBuilderState(), state.kept);
 
 async function loadFile(file) {
-  let parsed;
-  let raws;
+  let split;
   try {
-    const text = await file.text();
-    parsed = parseRouteRules(text);
-    raws = rawUserRules(JSON.parse(text));
+    split = splitUpload(await file.text(), urlToItem);
   } catch (err) {
     console.warn(err);
     return toast(`“${file.name}” isn't a Hiddify route_rules.json`, 'err');
   }
-  // a rule becomes picks only when Include/Exclude can show it without losing anything
-  const want = parsed.fallback === 'direct' ? 'proxy' : 'direct';
-  const other = ['packageNames', 'processNames', 'processPaths', 'portRanges', 'ipCidrs', 'domains', 'domainSuffixes', 'domainKeywords', 'domainRegexes'];
-  const simple = [];
-  const kept = [];
-  parsed.rules.forEach((r, i) => {
-    const items = (r.ruleSets || []).map(urlToItem);
-    const plain = r.enabled !== false && !r.extra && items.length && other.every((k) => !(r[k] || []).length)
-      && (r.outbound === 'block' ? items.every((it) => it.kind === 'block') : r.outbound === want);
-    if (plain) simple.push({ ...r, items });
-    else if (raws[i]) kept.push(raws[i]);
-  });
+  // rules Include/Exclude can show become picks; every other rule is kept exactly as it was
+  const { parsed, simple, kept } = split;
   state = { ...fromRules({ ...parsed, rules: simple }), kept };
   render();
   setView('rules');

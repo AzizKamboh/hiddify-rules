@@ -69,8 +69,9 @@ These details come from the [hiddify-app](https://github.com/hiddify/hiddify-app
 - **Built-in rules** (Bypass LAN, System services, Ads and malware, Bypass region) are recognised by their
   name. On import Hiddify fills in their content itself, which differs between Windows and Android, and keeps
   only their on/off switch and position. The page therefore writes only those.
-- **Bypass region** only exists when a region other than *Other* is selected in Hiddify. Pakistan isn't one
-  of Hiddify's regions; pick *Pakistan* under Countries (and Pakistani networks) in Exclude mode instead.
+- **Bypass region** only exists when a region other than *Other* is selected in Hiddify. The page leaves it
+  out of the file (so Hiddify keeps its own setting) unless you tick *My Hiddify region isn't "Other"*, which
+  shows its switch. Pakistan isn't one of Hiddify's regions; use the Pakistan lists in Services instead.
 - **"Everything else → Direct"** can't be set in Hiddify (its *Default proxy* only picks between VPN
   servers, and unmatched traffic always goes to the VPN). The page adds two catch-all rules at the end
   instead: domain regex `.*` → Direct, which also sends those names to the direct DNS, and ports
@@ -94,7 +95,9 @@ scripts/build-index.mjs      lists the upstream branches and mirrors the geoip-*
 data/catalog.json            hand-kept: services, Pakistan networks
 public/                      the page (plain HTML, CSS and JavaScript, no build step)
 public/lib/hiddify.js        turns the choices into Hiddify's file format and import link
-test/                        checks the output against real exports from Hiddify (Windows and Android)
+public/lib/picks.js          grouping of picks (shared lists) and reading uploaded files
+test/                        checks the output against real exports from Hiddify (Windows and Android),
+                             shared lists, and upload → download round trips
 ```
 
 `public/data/` and `public/sets/` are made by the build and aren't kept in the repository.
@@ -113,3 +116,7 @@ npx serve public                  # open the address it prints
 
 Edit `data/catalog.json`. Names must match the upstream list names (the page's *Websites* tab shows them);
 the daily build checks every name and drops ones that don't exist, listing them in the Action's log.
+
+## License
+
+MIT — see [LICENSE](LICENSE). The rule lists themselves come from their sources under their own licenses.
