@@ -64,6 +64,7 @@ let query = '';
 let uid = 1;
 let entriesCache = null;
 const openConditions = new Set();
+let builtinsOpen = false;
 
 // ---------- state ----------
 
@@ -361,7 +362,22 @@ function isPicked(items) {
   return Boolean(bucket) && items.every((i) => bucket.some((x) => itemKey(x) === itemKey(i)));
 }
 
+function renderLibTarget() {
+  const el = $('#libTarget');
+  const n = pickCount();
+  const count = n ? `<span class="muted">· ${n} picked</span>` : '';
+  if (isAdvanced()) {
+    const rule = activeRule();
+    el.innerHTML = rule ? `${icon('i-target')}<span>Adding to <b>rule #${ruleNumber(rule)} · ${escapeHtml(rule.name || 'Untitled')}</b></span>${count}` : '';
+  } else if (state.mode === 'off') {
+    el.innerHTML = `${icon('i-target')}<span>Tick to start split tunneling (Include)</span>${count}`;
+  } else {
+    el.innerHTML = `${icon('i-target')}<span>Adding to <b>${MODES[state.mode].row}</b></span>${count}`;
+  }
+}
+
 function renderTarget() {
+  renderLibTarget();
   const el = $('#activeTarget');
   if (isAdvanced()) {
     const rule = activeRule();
@@ -549,12 +565,28 @@ function renderRoute() {
   let n = 0;
   // Hiddify's own rules, always checked first
   const builtins = ['bypassLan', 'systemDirect', 'blockAds', ...(state.regionSet ? ['bypassRegion'] : [])];
+  const compact = document.createElement('li');
+  compact.className = 'route-row builtins-compact';
+  const short = { bypassLan: 'LAN', systemDirect: 'System', blockAds: 'Ads', bypassRegion: 'Region' };
+  compact.innerHTML = `<details${builtinsOpen ? ' open' : ''}><summary class="route-head"><span class="step-num">1–${builtins.length}</span><span class="route-title">Hiddify built-ins</span><span class="builtins-summary">${builtins.map((k) => `<span class="${state.builtins[k] ? 'on' : ''}">${short[k]} ${state.builtins[k] ? 'on' : 'off'}</span>`).join(' · ')}</span>${icon('i-chevron', 'ic chev')}</summary><div class="builtins-body"></div></details>`;
+  $('details', compact).ontoggle = (e) => { builtinsOpen = e.target.open; };
+  for (const key of builtins) {
+    const [name, desc, out] = BUILTIN_INFO[key];
+    const row = document.createElement('div');
+    row.className = 'builtin-line';
+    row.innerHTML = `<span class="route-title">${escapeHtml(name)}<button type="button" class="tip" title="${escapeHtml(desc)}" aria-label="More about this">${icon('i-info')}</button></span>${outBadge(out)}<label class="switch"><input type="checkbox" role="switch" aria-label="${escapeHtml(name)}"><span class="track"></span></label>`;
+    $('input', row).checked = Boolean(state.builtins[key]);
+    $('input', row).onchange = (e) => { state.builtins[key] = e.target.checked; render(); };
+    $('.builtins-body', compact).append(row);
+  }
+  ol.append(compact);
   for (const key of builtins) {
     const [name, desc, out] = BUILTIN_INFO[key];
     ol.append(routeRow({
       n: ++n, title: escapeHtml(name), desc, out, key, on: Boolean(state.builtins[key]), muted: !state.builtins[key],
       toggle: (v) => { state.builtins[key] = v; render(`b:${key}`); },
     }));
+    ol.lastElementChild.classList.add('builtin-row');
   }
 
   if (isAdvanced()) {
@@ -635,6 +667,7 @@ function renderMode() {
   $('#mode').classList.toggle('dimmed', isAdvanced());
   $('#advToggle').setAttribute('aria-pressed', String(isAdvanced()));
   $('#modeDesc').textContent = MODES[state.mode].desc;
+  $('#modeTip').title = MODES[state.mode].desc;
 }
 
 async function setMode(mode) {
@@ -807,7 +840,6 @@ function renderOutput() {
   const notes = isAdvanced() && state.rules.some(ruleHasContent) ? lint(built).filter((n) => n.level === 'warn') : [];
   if (nothingUsesVpn() && (isAdvanced() || state.mode === 'include')) notes.unshift({ level: 'warn', text: 'Nothing uses the VPN — all traffic would connect directly.' });
   $('#notes').innerHTML = notes.map((n) => `<div class="note ${n.level}">${icon(n.level === 'warn' ? 'i-alert' : 'i-info')}<span>${escapeHtml(n.text)}</span></div>`).join('');
-  $('#openHiddify').href = toImportLink(built);
   $('#ruleCount').textContent = pickCount() || '';
 }
 
@@ -853,9 +885,7 @@ function renderSources() {
       <time datetime="${s[k].updated}">updated ${fmtDate(s[k].updated)}</time></li>`).join('')}${names}
     </ul>
     <p class="sources-foot">Flags: <a href="https://github.com/lipis/flag-icons" target="_blank" rel="noopener">flag-icons</a> (MIT). Service icons: DuckDuckGo. This page re-reads the lists every day; it last did so ${fmtDate(index.generated)}. <a href="https://github.com/AzizKamboh/hiddify-rules" target="_blank" rel="noopener">Source code on GitHub</a>.</p>`;
-  $('#syncLine').textContent = `Lists synced ${fmtDate(index.generated)}`;
-  const total = index.counts.sites + index.counts.countries + index.counts.services + index.counts.asns + index.counts.block;
-  $('#libCounts').textContent = `${fmtCount(total)} lists`;
+  $('#syncLine').textContent = `Last synced ${fmtDate(index.generated)}`;
 }
 
 // ---------- render ----------
@@ -1039,6 +1069,11 @@ async function start() {
   siteDomains = new Map(index.featured.filter((f) => f.domain).flatMap((f) => f.site.map((n) => [n, f.domain])));
   state = load();
 
+  const narrow = window.matchMedia('(max-width: 600px)');
+  const hint = () => { $('#search').placeholder = narrow.matches ? 'Search lists…' : 'Search — YouTube, Pakistan, PTCL, AS17557…'; };
+  narrow.addEventListener('change', hint);
+  hint();
+
   let searchTimer;
   $('#search').oninput = (e) => {
     clearTimeout(searchTimer);
@@ -1083,15 +1118,6 @@ async function start() {
   };
 
   $('#download').onclick = download;
-  $('#copyLink').onclick = async () => { if (await confirmExport()) copyText(toImportLink(toBuilderState()), 'Import link copied — in Hiddify use ⋮ → Import from clipboard'); };
-  $('#openHiddify').addEventListener('click', async (e) => {
-    if (!nothingUsesVpn()) { toast('Opening Hiddify… If nothing happens, download the file instead.'); return; }
-    e.preventDefault();
-    if (await confirmExport()) window.location.href = toImportLink(toBuilderState());
-  });
-  $('#copyJson').onclick = () => copyText(toJsonFile(toBuilderState()), 'JSON copied');
-  $('#previewBtn').onclick = openPreview;
-  $('#howtoBtn').onclick = () => $('#howtoDialog').showModal();
   $('#sourcesBtn').onclick = () => $('#sourcesDialog').showModal();
   $('#loadFile').onchange = (e) => { if (e.target.files[0]) loadFile(e.target.files[0]); e.target.value = ''; };
   document.addEventListener('click', (e) => {

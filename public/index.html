@@ -71,13 +71,7 @@
     </a>
 
     <div class="appbar-actions">
-      <label class="btn btn-ghost btn-sm" title="Load a route_rules.json exported from Hiddify or from this page">
-        <svg class="ic"><use href="#i-upload"/></svg><span class="hide-sm">Load rules</span>
-        <input type="file" id="loadFile" accept=".json,application/json" class="sr-only">
-      </label>
-      <button class="btn btn-ghost btn-sm" id="reset" type="button" title="Start over">
-        <svg class="ic"><use href="#i-reset"/></svg><span class="hide-sm">Reset</span>
-      </button>
+
       <div class="theme-switch" role="radiogroup" aria-label="Theme">
         <button type="button" role="radio" data-theme-pref="light" title="Light"><svg class="ic"><use href="#i-sun"/></svg><span class="sr-only">Light</span></button>
         <button type="button" role="radio" data-theme-pref="dark" title="Dark"><svg class="ic"><use href="#i-moon"/></svg><span class="sr-only">Dark</span></button>
@@ -87,22 +81,23 @@
   </header>
 
   <section class="intro">
-    <h1>Take control of your traffic.</h1>
+    <h1><span class="hl-desk">Take control of your traffic.</span><span class="hl-mob">Create a split tunneling configuration for Hiddify</span></h1>
     <p>Decide what goes through your VPN, what connects directly, and what gets blocked — then import it into Hiddify.</p>
   </section>
 
   <nav class="viewswitch" aria-label="Workspace">
-    <button type="button" data-view="library"><svg class="ic"><use href="#i-layers"/></svg>Lists</button>
-    <button type="button" data-view="rules"><svg class="ic"><use href="#i-list"/></svg>My rules <span class="count" id="ruleCount"></span></button>
+    <button type="button" data-view="library"><svg class="ic"><use href="#i-layers"/></svg>Apps &amp; sites</button>
+    <button type="button" data-view="rules"><svg class="ic"><use href="#i-list"/></svg>Split tunneling <span class="count" id="ruleCount"></span></button>
   </nav>
 
   <main class="workspace">
     <section class="pane library" aria-labelledby="libTitle">
       <div class="pane-head">
         <div class="pane-title-row">
-          <h2 id="libTitle" class="pane-title">Routing rule library</h2>
-          <span class="pane-sub" id="libCounts"></span>
+          <h2 id="libTitle" class="pane-title">Apps &amp; sites</h2>
+          <span class="pane-sub">Services, sites, countries and networks</span>
         </div>
+        <div class="target lib-target" id="libTarget" aria-live="polite"></div>
         <div class="tabs" id="tabs" role="tablist" aria-label="List categories"></div>
         <label class="search">
           <svg class="ic"><use href="#i-search"/></svg>
@@ -117,7 +112,7 @@
     <section class="pane rules" aria-labelledby="splitTitle">
       <div class="pane-head split-head">
         <div class="split-title-row">
-          <h2 id="splitTitle" class="pane-title">Split tunneling</h2>
+          <h2 id="splitTitle" class="pane-title">Split tunneling<button type="button" class="tip mode-tip" id="modeTip" aria-label="About this mode"><svg class="ic"><use href="#i-info"/></svg></button></h2>
           <div class="segmented mode" role="radiogroup" aria-label="Split tunneling mode" id="mode">
             <button type="button" role="radio" data-value="off" title="Everything uses the VPN — Hiddify's default">Off</button>
             <button type="button" role="radio" data-value="include" title="Only what you pick uses the VPN">Include</button>
@@ -131,25 +126,21 @@
 
       <div class="rules-body" id="rulesBody">
         <ol class="route" id="route" aria-label="Rules in the order Hiddify checks them"></ol>
-      </div>
-
-      <div class="exportbar">
         <div class="notes" id="notes" aria-live="polite"></div>
-        <div class="export-actions">
-          <button class="btn btn-primary" id="download" type="button"><svg class="ic"><use href="#i-download"/></svg>Download route_rules.json</button>
-          <a class="btn btn-secondary" id="openHiddify" href="#"><svg class="ic"><use href="#i-external"/></svg>Open in Hiddify</a>
-          <button class="btn btn-secondary" id="copyLink" type="button"><svg class="ic"><use href="#i-copy"/></svg><span>Copy link</span></button>
-          <span class="spacer"></span>
-          <button class="btn btn-icon" id="previewBtn" type="button" title="Preview JSON" aria-label="Preview JSON"><svg class="ic"><use href="#i-code"/></svg></button>
-          <button class="btn btn-icon" id="howtoBtn" type="button" title="How to import" aria-label="How to import"><svg class="ic"><use href="#i-help"/></svg></button>
-        </div>
       </div>
     </section>
   </main>
 
-  <footer class="appfoot">
-    <span class="sync"><span id="syncLine"></span><button type="button" class="linkbtn" id="sourcesBtn">Sources</button></span>
-    <span class="replace-note"><svg class="ic"><use href="#i-info"/></svg>Importing replaces all routing rules in Hiddify. Reconnect afterwards.</span>
+  <footer class="actionbar">
+    <button type="button" class="sync" id="sourcesBtn" title="List sources"><svg class="ic"><use href="#i-info"/></svg><span id="syncLine">Last synced …</span></button>
+    <div class="actions">
+      <button class="btn btn-secondary" id="reset" type="button" title="Back to Hiddify's defaults"><svg class="ic"><use href="#i-reset"/></svg>Reset</button>
+      <label class="btn btn-secondary" title="Open a route_rules.json exported from Hiddify or from this page">
+        <svg class="ic"><use href="#i-upload"/></svg>Upload rules
+        <input type="file" id="loadFile" accept=".json,application/json" class="sr-only">
+      </label>
+      <button class="btn btn-primary" id="download" type="button" title="Importing replaces all routing rules in Hiddify. Reconnect afterwards."><svg class="ic"><use href="#i-download"/></svg>Download rules</button>
+    </div>
   </footer>
 
   <dialog class="dialog dialog-wide" id="previewDialog" aria-labelledby="previewTitle">
