@@ -647,9 +647,9 @@ select option { background: var(--surface); color: var(--text); }
 .notes:not(:empty) { margin-top: 10px; }
 
 /* headline and helpers that only show on phones */
-.hl-mob, .lib-target, .mode-tip, .builtins-compact { display: none; }
+.lib-target { display: none; }
+.builtin-row { display: none; }
 .mode-tip { margin-left: 4px; vertical-align: middle; }
-.pane-title .tip { display: none; }
 .builtins-compact > details > summary { list-style: none; cursor: pointer; }
 .builtins-compact > details > summary::-webkit-details-marker { display: none; }
 .builtins-compact summary .route-title { flex: none; white-space: nowrap; }
@@ -668,15 +668,9 @@ select option { background: var(--surface); color: var(--text); }
   .pane { overflow: visible; }
   .list, .rules-body { overflow: visible; max-height: none; scrollbar-gutter: auto; }
   .group-title { position: static; }
-  .hl-desk, .intro p { display: none; }
-  .hl-mob { display: inline; }
   .lib-target { display: flex; margin-top: 10px; }
   .lib-target .muted { margin-left: 2px; }
-  .mode-tip, .pane-title .tip { display: inline-grid; }
-  .mode-desc { display: none; }
   .split-head .target { display: none; }
-  .builtins-compact { display: block; }
-  .builtin-row { display: none; }
   .actionbar {
     position: sticky; bottom: 0; z-index: 20; flex-wrap: wrap; gap: 6px var(--s2);
     padding: 10px var(--s4) calc(10px + env(safe-area-inset-bottom));
