@@ -97,12 +97,19 @@
           <span class="pane-sub">Services, sites, countries and networks</span>
         </div>
         <div class="tabs" id="tabs" role="tablist" aria-label="List categories"></div>
-        <label class="search">
-          <svg class="ic"><use href="#i-search"/></svg>
-          <span class="sr-only">Search lists</span>
-          <input type="search" id="search" placeholder="Search lists…" autocomplete="off" spellcheck="false">
-          <kbd class="hide-sm">/</kbd>
-        </label>
+        <div class="search-row">
+          <label class="search">
+            <svg class="ic"><use href="#i-search"/></svg>
+            <span class="sr-only">Search lists</span>
+            <input type="search" id="search" placeholder="Search lists…" autocomplete="off" spellcheck="false">
+            <kbd class="hide-sm">/</kbd>
+          </label>
+          <div class="list-tools">
+            <span id="pickedHere"></span>
+            <button type="button" class="btn btn-ghost btn-xs" id="selectAll" title="Tick every list shown below">Select all</button>
+            <button type="button" class="btn btn-ghost btn-xs" id="clearCat" title="Untick everything picked in this category">Clear</button>
+          </div>
+        </div>
       </div>
       <div class="list" id="list" role="tabpanel" aria-labelledby="libTitle"></div>
     </section>
@@ -135,8 +142,7 @@
         <svg class="ic"><use href="#i-upload"/></svg>Upload rules
         <input type="file" id="loadFile" accept=".json,application/json" class="sr-only">
       </label>
-      <button class="btn btn-secondary" id="download" type="button" title="Importing replaces all routing rules in Hiddify. Reconnect afterwards."><svg class="ic"><use href="#i-download"/></svg>Download rules</button>
-      <button class="btn btn-primary" id="addHiddify" type="button" title="Opens Hiddify on this device with these rules. Hiddify asks before replacing your routing rules; reconnect afterwards."><svg class="ic"><use href="#i-external"/></svg>Add to Hiddify</button>
+      <button class="btn btn-primary" id="download" type="button" title="Importing replaces all routing rules in Hiddify. Reconnect afterwards."><svg class="ic"><use href="#i-download"/></svg>Download rules</button>
     </div>
   </footer>
 

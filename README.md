@@ -38,9 +38,7 @@ traffic goes.
 ## How to import into Hiddify
 
 1. Build your rules on the page.
-2. Either
-   - click **Add to Hiddify** on the device where Hiddify is installed; Hiddify opens and asks before replacing your rules, or
-   - click **Download rules**, then in Hiddify go to **Settings → Routing → ⋮ → import from file**.
+2. Click **Download rules**, then in Hiddify go to **Settings → Routing → ⋮ → import from file**.
 3. Reconnect from Hiddify's Home page.
 
 Importing replaces all your routing rules. To change rules you already have, export them from Hiddify

@@ -182,6 +182,13 @@ body {
   background: var(--surface); border: 1px solid var(--border-strong);
   transition: border-color var(--t-fast), box-shadow var(--t-fast);
 }
+.search-row { display: flex; align-items: center; gap: var(--s2); margin-top: 10px; }
+.search-row .search { flex: 1; min-width: 0; margin-top: 0; }
+.list-tools { display: flex; align-items: center; gap: 2px; flex: none; }
+.list-tools #pickedHere { font-size: var(--fs-small); color: var(--text-3); margin-right: 4px; white-space: nowrap; }
+.list-tools #pickedHere:empty { display: none; }
+@media (max-width: 480px) { .list-tools #pickedHere { display: none; } }
+.list-tools .btn:disabled { opacity: .45; cursor: default; }
 .search:hover { border-color: var(--text-3); }
 .search:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 .search .ic { color: var(--text-3); }
@@ -208,7 +215,7 @@ body {
 .list { flex: 1; min-height: 0; overflow-y: auto; padding: var(--s1) var(--s2) var(--s3); margin-top: var(--s2); border-top: 1px solid var(--border); scrollbar-gutter: stable; }
 .group-title {
   position: sticky; top: 0; z-index: 1; background: var(--surface);
-  font-size: var(--fs-meta); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--text-3);
+  font-size: var(--fs-small); font-weight: 600; color: var(--text-3);
   padding: 10px var(--s2) 5px;
 }
 .item {
@@ -671,8 +678,9 @@ select option { background: var(--surface); color: var(--text); }
     background: var(--surface); border-top: 1px solid var(--border); box-shadow: 0 -4px 16px rgba(0, 0, 0, .08);
   }
   .actionbar .sync { order: 2; width: 100%; justify-content: center; margin: 0; font-size: var(--fs-meta); padding: 0; }
-  .actionbar .actions { order: 1; width: 100%; display: grid; grid-template-columns: 1fr 1fr; }
-  .actionbar .actions .btn { min-width: 0; padding: 0 8px; }
+  .actionbar .actions { order: 1; width: 100%; }
+  .actionbar .actions .btn { flex: 1 1 0; min-width: 0; padding: 0 8px; }
+  .actionbar .actions .btn-primary { flex: 1.4 1 0; }
   /* compact rows instead of cards */
   .route { gap: 0; }
   .route-row { border: 0; border-bottom: 1px solid var(--border); border-radius: 0; padding: 10px 2px; background: none; }
@@ -730,7 +738,7 @@ select option { background: var(--surface); color: var(--text); }
 .picks { margin: 6px 0 2px 34px; display: flex; flex-direction: column; gap: 8px; }
 .pick-cat {
   display: flex; align-items: center; gap: 6px; padding: 2px 0 4px;
-  font-size: var(--fs-meta); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--text-3);
+  font-size: var(--fs-small); font-weight: 600; color: var(--text-3);
 }
 .pick-n { font-weight: 500; letter-spacing: 0; color: var(--text-3); opacity: .8; }
 .pick-list { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border); border-radius: var(--r-md); overflow: hidden; }
