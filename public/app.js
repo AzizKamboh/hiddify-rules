@@ -140,7 +140,17 @@ const isAdvanced = () => state.mode === 'advanced';
 const activeRule = () => state.rules.find((r) => r.id === state.active) || state.rules[0];
 const ruleNumber = (rule) => state.rules.indexOf(rule) + 1;
 const itemKey = (item) => `${item.kind}:${item.n}`;
-const pickCount = () => (isAdvanced() ? state.rules.reduce((n, r) => n + r.items.length, 0) : state.picks.length + state.blocked.length);
+/** How many tags the picks show: a popular service picked whole (sites + IPs) counts once. */
+function tagCount(items) {
+  const keys = new Set(items.map(itemKey));
+  let n = items.length;
+  for (const f of index.featured) {
+    const fi = featuredItems(f);
+    if (fi.length > 1 && fi.every((i) => keys.has(itemKey(i)))) n -= fi.length - 1;
+  }
+  return n;
+}
+const pickCount = () => (isAdvanced() ? state.rules.reduce((n, r) => n + tagCount(r.items), 0) : tagCount(state.picks) + tagCount(state.blocked));
 
 // ---------- lists → URLs ----------
 
@@ -362,36 +372,22 @@ function isPicked(items) {
   return Boolean(bucket) && items.every((i) => bucket.some((x) => itemKey(x) === itemKey(i)));
 }
 
-function renderLibTarget() {
-  const el = $('#libTarget');
+/** "Adding to …" line: the same words on phone (Apps & sites) and desktop (Split tunneling). */
+function targetHtml() {
   const n = pickCount();
   const count = n ? `<span class="muted">· ${n} picked</span>` : '';
   if (isAdvanced()) {
     const rule = activeRule();
-    el.innerHTML = rule ? `${icon('i-target')}<span>Adding to <b>rule #${ruleNumber(rule)} · ${escapeHtml(rule.name || 'Untitled')}</b></span>${count}` : '';
-  } else if (state.mode === 'off') {
-    el.innerHTML = `${icon('i-target')}<span>Tick to start split tunneling (Include)</span>${count}`;
-  } else {
-    el.innerHTML = `${icon('i-target')}<span>Adding to <b>${MODES[state.mode].row}</b></span>${count}`;
+    return rule ? `${icon('i-target')}<span>Adding to <b>rule #${ruleNumber(rule)} · ${escapeHtml(rule.name || 'Untitled')}</b></span>${count}` : `${icon('i-target')}<span>Add a rule to start picking lists</span>`;
   }
+  if (state.mode === 'off') return `${icon('i-target')}<span>Tick to start split tunneling (Include)</span>${count}`;
+  return `${icon('i-target')}<span>Adding to <b>${MODES[state.mode].row}</b></span>${count}`;
 }
 
 function renderTarget() {
-  renderLibTarget();
-  const el = $('#activeTarget');
-  if (isAdvanced()) {
-    const rule = activeRule();
-    el.innerHTML = rule
-      ? `${icon('i-target')}<span>Ticks go to <b class="rule-ref">rule #${ruleNumber(rule)}</b></span><span class="dot">·</span><b>${escapeHtml(rule.name || 'Untitled rule')}</b>${outBadge(rule.outbound)}`
-      : `${icon('i-target')}<span>Add a rule to start picking lists.</span>`;
-    return;
-  }
-  if (state.mode === 'off') {
-    el.innerHTML = `${icon('i-target')}<span>Tick a service, site, country or network to start — the mode switches to <b>Include</b>.</span>`;
-    return;
-  }
-  const m = MODES[state.mode];
-  el.innerHTML = `${icon('i-target')}<span>Ticks go to</span><b>${m.row}</b>${outBadge(m.out)}<span class="muted target-note">AdBlock lists go to Blocked</span>`;
+  const html = targetHtml();
+  $('#libTarget').innerHTML = html;
+  $('#activeTarget').innerHTML = html;
 }
 
 function renderLibrary() {
@@ -666,7 +662,6 @@ function renderMode() {
   }
   $('#mode').classList.toggle('dimmed', isAdvanced());
   $('#advToggle').setAttribute('aria-pressed', String(isAdvanced()));
-  $('#modeDesc').textContent = MODES[state.mode].desc;
   $('#modeTip').title = MODES[state.mode].desc;
 }
 
@@ -1068,11 +1063,6 @@ async function start() {
   siteSource = new Map(index.sites);
   siteDomains = new Map(index.featured.filter((f) => f.domain).flatMap((f) => f.site.map((n) => [n, f.domain])));
   state = load();
-
-  const narrow = window.matchMedia('(max-width: 600px)');
-  const hint = () => { $('#search').placeholder = narrow.matches ? 'Search lists…' : 'Search — YouTube, Pakistan, PTCL, AS17557…'; };
-  narrow.addEventListener('change', hint);
-  hint();
 
   let searchTimer;
   $('#search').oninput = (e) => {
