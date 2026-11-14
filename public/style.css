@@ -589,7 +589,7 @@ select option { background: var(--surface); color: var(--text); }
 .split-head { padding-bottom: var(--s3); border-bottom: 1px solid var(--border); }
 .split-title-row { display: flex; align-items: center; gap: var(--s3); flex-wrap: wrap; }
 .split-title-row .pane-title { font-size: var(--fs-title); margin-right: auto; }
-.segmented.mode { grid-template-columns: repeat(3, 1fr); min-width: 260px; }
+.segmented.mode { grid-template-columns: repeat(2, 1fr); min-width: 220px; }
 .segmented.mode button[aria-checked="true"] { color: var(--accent-text); }
 .segmented.dimmed { opacity: .55; }
 .adv-toggle[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent-text); }

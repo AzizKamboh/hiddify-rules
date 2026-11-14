@@ -24,19 +24,14 @@ Country flags: [flag-icons](https://github.com/lipis/flag-icons) (MIT), in `publ
 
 ## Split tunneling
 
-The page opens exactly as Hiddify ships: Bypass LAN on, System services and Ads off, everything through
-the VPN. Downloading without changing anything leaves Hiddify as it is.
-
 | Mode | What you pick | Everything else |
 |---|---|---|
-| **Off** (default) | — | VPN |
-| **Include** | uses the VPN | connects directly through your ISP |
-| **Exclude** | bypasses the VPN, connects directly | VPN |
+| **Exclude** (default) | bypasses the VPN, connects directly | VPN |
+| **Include** | uses the VPN | connects directly through your ISP, local network included |
 
-Ticking a list while the mode is Off switches to Include. AdBlock lists go to a separate *Blocked* rule in
-any mode. **Advanced** turns the choices into editable rules, each with its own outbound, extra domains,
-IPs, ports and apps. Include with nothing picked would send everything direct, so the page asks before
-exporting that.
+Exclude with nothing picked is exactly Hiddify's default: only the local network (the built-in Bypass LAN
+rule, shown as the first excluded item) bypasses the VPN. AdBlock lists go to a separate *Blocked* rule.
+Uploaded files open in Include or Exclude, depending on where their unmatched traffic goes.
 
 ## How to import into Hiddify
 

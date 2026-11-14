@@ -18,10 +18,8 @@ const OUT = {
   block: { label: 'Block', icon: 'i-block', plain: 'blocked' },
 };
 const MODES = {
-  off: { desc: 'Everything uses the VPN — Hiddify’s default. Tick something on the left to start splitting.' },
-  include: { desc: 'Only what you pick uses the VPN. Everything else connects directly through your ISP.', row: 'Use VPN', out: 'proxy' },
-  exclude: { desc: 'What you pick bypasses the VPN and connects directly. Everything else uses the VPN.', row: 'Bypass VPN', out: 'direct' },
-  advanced: { desc: 'Custom rules, each with its own outbound. Checked top to bottom; the first match wins.' },
+  exclude: { desc: 'What you pick bypasses the VPN and connects directly through your ISP. Everything else uses the VPN — like Hiddify’s default, where only your local network bypasses it.', row: 'Bypass VPN', out: 'direct' },
+  include: { desc: 'Only what you pick uses the VPN. Everything else — your local network included — connects directly through your ISP.', row: 'Use VPN', out: 'proxy' },
 };
 const EXTRA_FIELDS = [
   ['domainSuffixes', 'Domain suffixes', 'youtube.com\n.pk'],
@@ -76,7 +74,7 @@ function emptyRule(name = 'New rule', outbound = 'proxy') {
 
 /** Hiddify's own defaults: built-ins as shipped, nothing split, everything through the VPN. */
 function defaultState() {
-  return { builtins: { ...BUILTIN_DEFAULTS }, regionSet: false, mode: 'off', picks: [], blocked: [], rules: [], fallback: 'proxy', active: null };
+  return { builtins: { ...BUILTIN_DEFAULTS }, regionSet: false, mode: 'exclude', picks: [], blocked: [], rules: [], fallback: 'proxy', active: null };
 }
 
 const extraCount = (rule) => EXTRA_FIELDS.reduce((n, [k]) => n + (rule[k]?.length ? 1 : 0), 0);
@@ -86,32 +84,16 @@ const ruleHasContent = (rule) => rule.items.length > 0 || extraCount(rule) > 0;
  * Turns a list of rules (from an old save or a loaded file) into the simple modes when it fits one,
  * otherwise keeps it as Advanced so nothing is lost. `emptyIsOff`: an empty list means Hiddify's default.
  */
-function fromRules({ builtins, regionSet, rules, fallback }, emptyIsOff) {
+function fromRules({ builtins, regionSet, rules, fallback }) {
   const base = { ...defaultState(), builtins: { ...BUILTIN_DEFAULTS, ...(builtins || {}) }, regionSet: Boolean(regionSet) };
-  const real = (rules || []).filter(ruleHasContent);
-  const simple = (r) => r.enabled !== false && extraCount(r) === 0;
-  const blocks = real.filter((r) => r.outbound === 'block');
+  const real = (rules || []).filter((r) => r.enabled !== false && (r.items || []).length);
+  const blocked = real.filter((r) => r.outbound === 'block').flatMap((r) => r.items);
   const others = real.filter((r) => r.outbound !== 'block');
-  const fits = real.every(simple) && blocks.length <= 1 && others.length <= 1;
-  if (fits) {
-    const blocked = blocks[0]?.items || [];
-    if (!others.length) {
-      if (fallback === 'proxy' || emptyIsOff) return { ...base, mode: 'off', blocked };
-      return { ...base, mode: 'include', blocked };
-    }
-    const o = others[0];
-    if (o.outbound === 'proxy' && fallback === 'direct') return { ...base, mode: 'include', picks: o.items, blocked };
-    if (o.outbound === 'direct' && fallback === 'proxy') return { ...base, mode: 'exclude', picks: o.items, blocked };
-  }
-  const kept = (rules || []).map((r) => {
-    const rule = emptyRule(r.name, r.outbound);
-    rule.enabled = r.enabled !== false;
-    rule.items = r.items || [];
-    for (const [key] of EXTRA_FIELDS) rule[key] = r[key] || [];
-    return rule;
-  });
-  if (!kept.length) kept.push(emptyRule('Rule 1', 'proxy'));
-  return { ...base, mode: 'advanced', rules: kept, fallback: fallback || 'proxy', active: kept[0].id };
+  // Include when everything else goes direct, otherwise Exclude (Hiddify's default direction)
+  const mode = fallback === 'direct' ? 'include' : 'exclude';
+  const want = mode === 'include' ? 'proxy' : 'direct';
+  const picks = others.filter((r) => (r.outbound === 'direct_with_fragment' ? 'direct' : r.outbound) === want).flatMap((r) => r.items);
+  return { ...base, mode, picks, blocked };
 }
 
 function save() {
@@ -121,8 +103,10 @@ function save() {
 function load() {
   try {
     const saved = JSON.parse(localStorage.getItem(STORE_KEY));
+    if (saved && saved.mode === 'advanced') return fromRules(saved);
     if (saved && saved.mode) {
       const s = { ...defaultState(), ...saved, builtins: { ...BUILTIN_DEFAULTS, ...(saved.builtins || {}) } };
+      if (!MODES[s.mode]) s.mode = 'exclude';
       for (const r of s.rules) { r.items ||= []; for (const [key] of EXTRA_FIELDS) r[key] ||= []; }
       uid = Math.max(0, ...s.rules.map((r) => r.id || 0)) + 1;
       return s;
@@ -130,13 +114,13 @@ function load() {
     if (saved && Array.isArray(saved.rules)) {
       // a save from before split tunneling: numbered rules + "everything else"
       uid = Math.max(0, ...saved.rules.map((r) => r.id || 0)) + 1;
-      return fromRules(saved, true);
+      return fromRules(saved);
     }
   } catch { /* ignore broken saves */ }
   return defaultState();
 }
 
-const isAdvanced = () => state.mode === 'advanced';
+const isAdvanced = () => false; // the custom rule editor is switched off for now
 const activeRule = () => state.rules.find((r) => r.id === state.active) || state.rules[0];
 const ruleNumber = (rule) => state.rules.indexOf(rule) + 1;
 const itemKey = (item) => `${item.kind}:${item.n}`;
@@ -380,7 +364,6 @@ function targetHtml() {
     const rule = activeRule();
     return rule ? `${icon('i-target')}<span>Adding to <b>rule #${ruleNumber(rule)} · ${escapeHtml(rule.name || 'Untitled')}</b></span>${count}` : `${icon('i-target')}<span>Add a rule to start picking lists</span>`;
   }
-  if (state.mode === 'off') return `${icon('i-target')}<span>Tick to start split tunneling (Include)</span>${count}`;
   return `${icon('i-target')}<span>Adding to <b>${MODES[state.mode].row}</b></span>${count}`;
 }
 
@@ -472,10 +455,6 @@ function asnAdder(prefill) {
 
 function toggleItems(items, add, label) {
   const isBlock = items.every((i) => i.kind === 'block');
-  if (!isAdvanced() && add && !isBlock && state.mode === 'off') {
-    state.mode = 'include';
-    toast('Split tunneling turned on: Include — only what you pick uses the VPN');
-  }
   const bucket = bucketFor(items);
   if (!bucket) return toast('Add a rule first', 'err');
   for (const item of items) {
@@ -484,8 +463,6 @@ function toggleItems(items, add, label) {
     if (add) bucket.push(item);
   }
   render();
-  const where = isAdvanced() ? OUT[activeRule().outbound].plain : isBlock ? 'blocked' : OUT[MODES[state.mode].out]?.plain || 'through the VPN';
-  toast(add ? `${label} → ${where}` : `${label} removed`, add ? 'ok' : '');
   flash(isAdvanced() ? `rule-${state.active}` : isBlock ? 'blocked' : 'picks');
 }
 
@@ -605,23 +582,30 @@ function renderRoute() {
         body: chipList(state.blocked, (gone) => { state.blocked = state.blocked.filter((x) => !gone.includes(x)); render(); }),
       }));
     }
-    if (state.mode !== 'off') {
-      const m = MODES[state.mode];
-      const empty = document.createElement('p');
-      empty.className = 'route-empty';
-      empty.textContent = state.mode === 'include'
+    const m = MODES[state.mode];
+    const body = document.createElement('div');
+    // Exclude: the local network bypasses the VPN too (Hiddify's Bypass LAN rule), shown as the first item
+    const lan = state.mode === 'exclude' && state.builtins.bypassLan;
+    if (state.picks.length || lan) {
+      const chips = chipList(state.picks, (gone) => { state.picks = state.picks.filter((x) => !gone.includes(x)); render(); });
+      if (lan) {
+        const chip = document.createElement('span');
+        chip.className = 'chip chip-lan';
+        chip.title = 'Hiddify’s Bypass LAN rule: private and local addresses';
+        chip.innerHTML = `${visual({ letter: 'L' })}<span class="label">Local network (LAN)</span><span class="kind">built-in</span><button type="button" aria-label="Stop excluding the local network">${icon('i-x')}</button>`;
+        $('button', chip).onclick = () => { state.builtins.bypassLan = false; render(); };
+        chips.prepend(chip);
+      }
+      body.append(chips);
+    } else {
+      const p = document.createElement('p');
+      p.className = 'route-empty';
+      p.textContent = state.mode === 'include'
         ? 'Nothing picked yet — tick what should use the VPN on the left.'
         : 'Nothing picked yet — tick what should skip the VPN on the left.';
-      const body = state.picks.length
-        ? chipList(state.picks, (gone) => { state.picks = state.picks.filter((x) => !gone.includes(x)); render(); })
-        : empty;
-      ol.append(routeRow({ n: ++n, title: m.row, out: m.out, key: 'picks', body }));
-    } else if (state.picks.length) {
-      const p = document.createElement('li');
-      p.className = 'route-note';
-      p.textContent = `${state.picks.length} pick${state.picks.length === 1 ? '' : 's'} kept for Include or Exclude — not used while split tunneling is off.`;
-      ol.append(p);
+      body.append(p);
     }
+    ol.append(routeRow({ n: ++n, title: m.row, out: m.out, key: 'picks', body }));
   }
 
   // everything else
@@ -658,10 +642,8 @@ function renderMode() {
   for (const b of $$('#mode button')) {
     const on = !isAdvanced() && b.dataset.value === state.mode;
     b.setAttribute('aria-checked', String(on));
-    b.tabIndex = on || (isAdvanced() && b.dataset.value === 'off') ? 0 : -1;
+    b.tabIndex = on ? 0 : -1;
   }
-  $('#mode').classList.toggle('dimmed', isAdvanced());
-  $('#advToggle').setAttribute('aria-pressed', String(isAdvanced()));
   $('#modeTip').title = MODES[state.mode].desc;
 }
 
@@ -833,15 +815,15 @@ async function removeRule(rule) {
 function renderOutput() {
   const built = toBuilderState();
   const notes = isAdvanced() && state.rules.some(ruleHasContent) ? lint(built).filter((n) => n.level === 'warn') : [];
-  if (nothingUsesVpn() && (isAdvanced() || state.mode === 'include')) notes.unshift({ level: 'warn', text: 'Nothing uses the VPN — all traffic would connect directly.' });
-  $('#notes').innerHTML = notes.map((n) => `<div class="note ${n.level}">${icon(n.level === 'warn' ? 'i-alert' : 'i-info')}<span>${escapeHtml(n.text)}</span></div>`).join('');
+  if (state.mode === 'include' && !state.picks.length) notes.unshift({ level: 'info', text: 'Nothing picked: all traffic, your local network included, connects directly through your ISP.' });
+  $$('#notes .note:not(.transient)').forEach((n) => n.remove());
+  $('#notes').insertAdjacentHTML('beforeend', notes.map((n) => `<div class="note ${n.level}">${icon(n.level === 'warn' ? 'i-alert' : 'i-info')}<span>${escapeHtml(n.text)}</span></div>`).join(''));
   $('#ruleCount').textContent = pickCount() || '';
 }
 
-/** Asks before exporting a setup that turns the VPN into a pass-through. */
+/** Exports go straight through: Include with nothing picked is a valid choice (everything via your ISP). */
 async function confirmExport() {
-  if (!nothingUsesVpn()) return true;
-  return confirmDialog('Nothing uses the VPN', 'With these rules all traffic connects directly through your ISP, so Hiddify’s VPN carries nothing. Export anyway?', 'Export anyway');
+  return true;
 }
 
 function highlightJson(text) {
@@ -932,9 +914,8 @@ async function loadFile(file) {
     console.warn(err);
     return toast(`“${file.name}” isn't a Hiddify route_rules.json`, 'err');
   }
-  if (pickCount() && !(await confirmDialog('Replace your choices?', `Loading “${file.name}” replaces what you have now.`, 'Replace'))) return;
   const rules = parsed.rules.map((r) => ({ ...r, items: (r.ruleSets || []).map(urlToItem) }));
-  state = fromRules({ ...parsed, rules }, false);
+  state = fromRules({ ...parsed, rules });
   render();
   setView('rules');
   toast(`Loaded ${file.name} — ${state.mode === 'advanced' ? 'opened in Advanced' : `split tunneling: ${state.mode}`}`, 'ok');
@@ -955,15 +936,18 @@ function confirmDialog(title, text, okLabel = 'Confirm') {
   });
 }
 
+/** No pop-ups: errors appear as a line in the panel for a few seconds; other messages only go to screen readers. */
 function toast(text, kind = '') {
-  const wrap = $('#toasts');
-  const t = document.createElement('div');
-  t.className = `toast ${kind}`;
-  const ic = kind === 'ok' ? 'i-check' : kind === 'err' ? 'i-alert' : 'i-info';
-  t.innerHTML = `${icon(ic)}<span>${escapeHtml(text)}</span>`;
-  wrap.append(t);
-  while ($$('.toast', wrap).length > 3) $('.toast', wrap).remove();
-  setTimeout(() => { t.classList.add('out'); setTimeout(() => t.remove(), 250); }, kind === 'err' ? 4000 : 2800);
+  if (kind !== 'err') { announce(text); return; }
+  showNote(text, 'warn');
+}
+
+function showNote(text, level = 'info') {
+  const el = document.createElement('div');
+  el.className = `note ${level} transient`;
+  el.innerHTML = `${icon(level === 'warn' ? 'i-alert' : 'i-info')}<span>${escapeHtml(text)}</span>`;
+  $('#notes').prepend(el);
+  setTimeout(() => el.remove(), 6000);
 }
 
 function announce(text) {
@@ -1096,7 +1080,6 @@ async function start() {
 
   $('#mode').onclick = (e) => { const b = e.target.closest('button'); if (b) setMode(b.dataset.value); };
   radioKeys($('#mode'), (b) => setMode(b.dataset.value));
-  $('#advToggle').onclick = enterAdvanced;
 
   $('#reset').onclick = async () => {
     if (await confirmDialog('Back to Hiddify’s defaults?', 'Clears your choices: built-in rules as Hiddify ships them, split tunneling off, everything through the VPN.', 'Reset')) {
@@ -1115,7 +1098,7 @@ async function start() {
     if (!t) return;
     e.preventDefault();
     e.stopPropagation();
-    toast(t.title);
+    showNote(t.title);
   });
 
   for (const dlg of $$('dialog')) {
