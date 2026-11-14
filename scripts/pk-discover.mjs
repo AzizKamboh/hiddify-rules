@@ -188,7 +188,8 @@ async function main() {
   }
   // a DNS outage would make everything look gone: then add nothing this month
   const autoAdd = alive.length >= auto.length / 3 ? [...new Set(alive)].sort() : [];
-  console.log(`Wikidata: ${wd.size} Pakistani organisations' websites; adding ${autoAdd.length}; skipped`, skipped);
+  console.log(`Wikidata: ${wd.size} Pakistani organisations' websites; adding ${autoAdd.length}; skipped ${JSON.stringify(skipped)}`);
+  if (autoAdd.length) console.log(`ADDING: ${autoAdd.join(' ')}`);
 
   // tier 2: popular in Pakistan, for review
   const candidates = new Map();
