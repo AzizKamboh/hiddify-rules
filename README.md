@@ -41,15 +41,18 @@ traffic the other way, switched-off rules, *Direct + fragment* — are kept exac
 
 ## Pakistan
 
-No public rule source covers Pakistan, so this project keeps its own lists in
-[`data/pakistan.txt`](data/pakistan.txt): banks and payments, government and education, news and TV,
-telecom, streaming, shopping, and everyday services, plus *Pakistani websites (all)* — every `.pk` site and
-every domain in those lists. The page shows them first in **Services**, together with *Everything in
-Pakistan* (all Pakistani websites, Pakistan's country IP list and the Pakistan networks). In Exclude mode
-that keeps local sites — many of which refuse foreign IPs — on your ISP.
+No public rule source covers Pakistan, so this project keeps its own list in
+[`data/pakistan.txt`](data/pakistan.txt) — banks and payments, government and education, news and TV, telecom,
+streaming, shopping and everyday services, sorted into sections for easy editing. The page shows two choices
+first in **Services**:
 
-The daily build publishes each list as `sets/geosite-pk-<list>.json` and leaves out domains that no longer
-exist (listed in the Action's log). To add a site, edit `data/pakistan.txt` on GitHub.
+- **Pakistani websites** — every `.pk` site plus every domain in that file.
+- **Pakistan** — Pakistani websites, Pakistan's country IP list and the Pakistan networks together.
+
+In Exclude mode that keeps local sites — many of which refuse foreign IPs — on your ISP. The daily build
+publishes the list as `sets/geosite-pk-all.json` (each section also as `sets/geosite-pk-<section>.json`) and
+leaves out domains that no longer exist (listed in the Action's log). To add a site, edit `data/pakistan.txt`
+on GitHub.
 
 ## How to import into Hiddify
 

@@ -114,7 +114,7 @@ function bundles() {
   if ((index.pakistan || []).length) bundleCache.push({ cat: 'services', label: PK_BUNDLE, kind: 'sites + country + networks', visual: visual({ flag: 'pk' }), items: pkBundleItems() });
   return bundleCache;
 }
-const PK_BUNDLE = 'Everything in Pakistan';
+const PK_BUNDLE = 'Pakistan';
 function pkBundleItems() {
   return [
     { kind: 'pk', n: 'all' }, { kind: 'country', n: 'pk' },
@@ -333,14 +333,14 @@ function allEntries() {
   }
   services.sort((a, b) => az(a.group, b.group) || az(a.label, b.label));
   // Pakistan first: the page is mostly used from Pakistan
-  for (const [i, l] of (index.pakistan || []).entries()) {
+  for (const [i, l] of (index.pakistan || []).filter((x) => x.id === 'all').entries()) {
     if (i === 0) {
       out.push({ tab: 'services', group: 'Pakistan', visual: visual({ flag: 'pk' }), label: PK_BUNDLE, meta: 'sites + country + networks', items: pkBundleItems(),
         title: 'Pakistani websites, Pakistan’s country IP list and the Pakistan networks together', search: `${PK_BUNDLE} pakistan pk local` });
     }
     out.push({ tab: 'services', group: 'Pakistan', visual: visual({ flag: 'pk' }), label: l.label,
       meta: l.allPk ? `.pk + ${fmtCount(l.count)} sites` : `${fmtCount(l.count)} sites`, items: [{ kind: 'pk', n: l.id }],
-      title: `For example: ${l.examples.join(', ')} — full lists: github.com/AzizKamboh/hiddify-rules/blob/main/data/pakistan.txt`, search: `${l.label} pakistan pk ${l.examples.join(' ')}` });
+      title: `For example: ${l.examples.join(', ')} — full lists: github.com/AzizKamboh/hiddify-rules/blob/main/data/pakistan.txt`, search: `${l.label} pakistan pk ${(l.domains || l.examples).join(' ')}` });
   }
   out.push(...services);
   for (const [n, src] of index.sites) {
@@ -383,7 +383,7 @@ function networkMatches(q) {
 }
 
 function renderTabs() {
-  const counts = { services: index.featured.length + (index.pakistan || []).length + 1 + index.counts.services, sites: index.counts.sites, countries: index.counts.countries, asn: index.counts.asns, block: index.counts.block };
+  const counts = { services: index.featured.length + ((index.pakistan || []).length ? 2 : 0) + index.counts.services, sites: index.counts.sites, countries: index.counts.countries, asn: index.counts.asns, block: index.counts.block };
   const el = $('#tabs');
   const focused = document.activeElement?.closest?.('#tabs') ? document.activeElement.dataset.tab : null;
   el.innerHTML = '';
