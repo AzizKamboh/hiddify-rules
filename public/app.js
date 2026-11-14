@@ -284,6 +284,11 @@ function loadAsnNames() {
   return asnNamesLoading;
 }
 
+function loadAsnList() {
+  if (asnList) return;
+  fetch('data/asns.txt').then((r) => r.text()).then((t) => { asnList = new Set(t.split('\n').filter(Boolean)); renderLibrary(); }).catch(() => {});
+}
+
 // ---------- library ----------
 
 function featuredItems(f) {
@@ -359,7 +364,7 @@ function renderTabs() {
     b.tabIndex = (query ? id === 'services' : selected) ? 0 : -1;
     b.dataset.tab = id;
     b.innerHTML = `${icon(ic)}<span>${label}</span><span class="count">${fmtCount(counts[id])}</span>`;
-    b.onclick = () => { tab = id; query = ''; $('#search').value = ''; if (id === 'asn') loadAsnNames(); renderLibrary(); };
+    b.onclick = () => { tab = id; query = ''; $('#search').value = ''; if (id === 'asn') { loadAsnNames(); loadAsnList(); } renderLibrary(); };
     el.append(b);
   }
   if (focused) $(`.tab[data-tab="${focused}"]`)?.focus();
@@ -399,15 +404,19 @@ function renderLibrary() {
   list.innerHTML = '';
   const isAsnQuery = /^(as)?\d+$/.test(q);
   if (isAsnQuery) {
-    if (!asnList) {
-      fetch('data/asns.txt').then((r) => r.text()).then((t) => { asnList = new Set(t.split('\n').filter(Boolean)); renderLibrary(); }).catch(() => {});
-    } else if (!entries.some((e) => e.items.some((i) => i.kind === 'asn' && i.n === qNum))) {
-      if (asnList.has(qNum)) entries.unshift({ tab: 'asn', label: `AS${qNum}`, meta: 'network', visual: visual({ letter: 'N' }), items: [{ kind: 'asn', n: qNum }], search: '' });
-      else list.insertAdjacentHTML('beforeend', `<div class="empty"><b>No list for AS${escapeHtml(qNum)}</b>MetaCubeX has no list for this network.</div>`);
+    if (!asnList) loadAsnList();
+    else if (!entries.some((e) => e.items.some((i) => i.kind === 'asn' && String(i.n) === qNum))) {
+      const shown = new Set(entries.flatMap((e) => e.items.filter((i) => i.kind === 'asn').map((i) => String(i.n))));
+      const nums = [...asnList].filter((a) => a.startsWith(qNum) && !shown.has(a)).sort((a, b) => a.length - b.length || a - b).slice(0, 200);
+      for (const a of nums) {
+        const info = asnNames?.get(a);
+        entries[a === qNum ? 'unshift' : 'push']({ tab: 'asn', group: info?.cc ? countryName(info.cc) : '', label: info?.name || `AS${a}`, meta: info?.name ? `AS${a}` : 'network', visual: info?.cc ? visual({ flag: info.cc.toLowerCase() }) : visual({ letter: 'N' }), items: [{ kind: 'asn', n: a, label: info?.name, cc: info?.cc }], search: '' });
+      }
+      if (!nums.length) list.insertAdjacentHTML('beforeend', `<div class="empty"><b>No list for AS${escapeHtml(qNum)}</b>MetaCubeX has no list for this network.</div>`);
     }
   }
   if (tab === 'asn' && !q) {
-    list.insertAdjacentHTML('beforeend', `<p class="list-hint">Type a network number in search, e.g. 17557 — ${fmtCount(index.counts.asns)} networks have a list.</p>`);
+    list.insertAdjacentHTML('beforeend', `<p class="list-hint">Search ${fmtCount(index.counts.asns)} networks by name, number or country, e.g. “Wateen”, “17557”, “PK”.</p>`);
   }
   if (!entries.length && !isAsnQuery) {
     list.insertAdjacentHTML('beforeend', `<div class="empty"><b>No lists match “${escapeHtml(query)}”</b>Try a service, a country or a network name.</div>`);
@@ -415,7 +424,7 @@ function renderLibrary() {
   }
   let lastGroup = null;
   for (const e of entries.slice(0, LIST_LIMIT)) {
-    const group = q ? (e.tab === 'asn' ? `Networks · ${e.group}` : TABS.find((t) => t[0] === e.tab)[1]) : e.group;
+    const group = q ? (e.tab === 'asn' ? (e.group ? `Networks · ${e.group}` : 'Networks') : TABS.find((t) => t[0] === e.tab)[1]) : e.group;
     if (group && group !== lastGroup) {
       list.insertAdjacentHTML('beforeend', `<div class="group-title">${escapeHtml(group)}</div>`);
       lastGroup = group;
