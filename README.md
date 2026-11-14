@@ -39,6 +39,18 @@ Rules in an uploaded file that Include/Exclude can't show — typed domains, IPs
 traffic the other way, switched-off rules, *Direct + fragment* — are kept exactly as they were in a
 **From your file** section, placed right after the built-ins in the downloaded file. Each can be removed.
 
+## Pakistan
+
+No public rule source covers Pakistan, so this project keeps its own lists in
+[`data/pakistan.txt`](data/pakistan.txt): banks and payments, government and education, news and TV,
+telecom, streaming, shopping, and everyday services, plus *Pakistani websites (all)* — every `.pk` site and
+every domain in those lists. The page shows them first in **Services**, together with *Everything in
+Pakistan* (all Pakistani websites, Pakistan's country IP list and the Pakistan networks). In Exclude mode
+that keeps local sites — many of which refuse foreign IPs — on your ISP.
+
+The daily build publishes each list as `sets/geosite-pk-<list>.json` and leaves out domains that no longer
+exist (listed in the Action's log). To add a site, edit `data/pakistan.txt` on GitHub.
+
 ## How to import into Hiddify
 
 1. Build your rules on the page.

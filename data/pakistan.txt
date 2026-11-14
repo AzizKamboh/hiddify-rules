@@ -1,0 +1,136 @@
+# Pakistani websites, kept by hand. Each [section] becomes one list in the page's Pakistan category.
+# One domain per line; a domain also covers its subdomains (hbl.com covers www.hbl.com).
+# A line starting with a dot is an ending, not a site: .gov.pk covers every government site.
+# The daily build drops domains that no longer exist and lists them in the Action's log.
+# "Pakistani websites (all)" is every .pk site plus every domain below.
+# To add a site: edit this file on GitHub and commit. Lines starting with # are notes.
+
+[banks] Banks and payments
+hbl.com
+meezanbank.com
+ubldigital.com
+ubl.com.pk
+mcb.com.pk
+mcbislamicbank.com
+abl.com
+bankalfalah.com
+askaribank.com
+faysalbank.com
+bankislami.com.pk
+jsbl.com
+soneribank.com
+nbp.com.pk
+habibmetro.com
+bop.com.pk
+dibpak.com
+albaraka.com.pk
+sbp.org.pk
+1link.net.pk
+jazzcash.com.pk
+easypaisa.com.pk
+sadapay.pk
+nayapay.com
+zindigi.pk
+mobilinkbank.com
+ubank.com.pk
+keenu.pk
+gopayfast.com
+psx.com.pk
+cdcpakistan.com
+nccpl.com.pk
+mufap.com.pk
+
+[gov] Government and education
+.gov.pk
+.edu.pk
+nadra.gov.pk
+fbr.gov.pk
+hec.gov.pk
+ilmkidunya.com
+
+[news] News and TV
+dawn.com
+dawnnews.tv
+geo.tv
+thenews.com.pk
+jang.com.pk
+arynews.tv
+samaa.tv
+tribune.com.pk
+express.pk
+expressnews.tv
+bolnews.com
+humnews.pk
+dunyanews.tv
+dunya.com.pk
+92newshd.tv
+nation.com.pk
+brecorder.com
+propakistani.pk
+aaj.tv
+app.com.pk
+ptv.com.pk
+hum.tv
+harpalgeo.tv
+arydigital.tv
+
+[telecom] Telecom and internet
+ptcl.com.pk
+ptcl.net.pk
+jazz.com.pk
+zong.com.pk
+telenor.com.pk
+ufone.com
+nayatel.com
+stormfiber.com
+wateen.com
+cyber.net.pk
+worldcall.net.pk
+multinet.com.pk
+scom.com.pk
+
+[streaming] Streaming and music
+tamashaweb.com
+tapmad.com
+aryzap.com
+patari.pk
+
+[shopping] Shopping and food
+daraz.pk
+olx.com.pk
+foodpanda.pk
+priceoye.pk
+telemart.pk
+ishopping.pk
+homeshopping.pk
+khaadi.com
+gulahmedshop.com
+sapphireonline.pk
+outfitters.com.pk
+breakout.com.pk
+junaidjamshed.com
+alkaramstudio.com
+limelight.pk
+bonanzasatrangi.com
+imtiaz.com.pk
+naheed.pk
+metro-online.pk
+
+[everyday] Rides, travel, property and jobs
+zameen.com
+graana.com
+pakwheels.com
+rozee.pk
+mustakbil.com
+bykea.com
+careem.com
+sastaticket.pk
+bookme.pk
+piac.com.pk
+daewoo.com.pk
+oladoc.com
+marham.pk
+sehatkahani.com
+ke.com.pk
+sngpl.com.pk
+ssgc.com.pk

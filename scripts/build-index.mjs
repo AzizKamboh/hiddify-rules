@@ -10,6 +10,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdirSync, existsSync, readFileSync, writeFileSync, rmSync, readdirSync, copyFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { gunzipSync } from 'node:zlib';
+import { promises as dns } from 'node:dns';
 import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -106,6 +107,64 @@ async function buildAsnNames(asnSet, dest) {
   return rows.length;
 }
 
+/**
+ * The hand-kept Pakistani website lists (data/pakistan.txt) as sing-box source rule sets
+ * (sets/geosite-pk-{id}.json). Domains that no longer exist are dropped and reported; a lookup
+ * that fails for any other reason keeps the domain, so a bad DNS day never empties a list.
+ */
+async function buildPakistan(problems) {
+  const text = readFileSync(join(root, 'data/pakistan.txt'), 'utf8');
+  const lists = [];
+  for (const line of text.split('\n').map((l) => l.trim())) {
+    if (!line || line.startsWith('#')) continue;
+    const head = line.match(/^\[([a-z0-9-]+)\]\s*(.+)$/);
+    if (head) { lists.push({ id: head[1], label: head[2].trim(), domains: [] }); continue; }
+    if (!lists.length) continue;
+    // ".gov.pk" is an ending (every site under it), kept without a lookup; "hbl.com" is a site
+    const ending = line.startsWith('.');
+    const d = line.toLowerCase().replace(/^\.|\.$/g, '');
+    if (/^[a-z0-9.-]+\.[a-z]{2,}$/.test(d)) lists[lists.length - 1].domains.push(ending ? `.${d}` : d);
+    else problems.push(`pakistan: "${line}" isn't a domain`);
+  }
+  const all = [...new Set(lists.flatMap((l) => l.domains))];
+  const checked = all.filter((d) => !d.startsWith('.'));
+  const alive = new Map();
+  const exists = async (d) => {
+    for (const q of [() => dns.resolve4(d), () => dns.resolve6(d), () => dns.resolve4(`www.${d}`), () => dns.resolveNs(d)]) {
+      try { await q(); return true; } catch (err) { if (!['ENOTFOUND', 'ENODATA'].includes(err.code)) return true; }
+    }
+    return false;
+  };
+  for (const d of all) if (d.startsWith('.')) alive.set(d, true);
+  for (let i = 0; i < checked.length; i += 16) {
+    await Promise.all(checked.slice(i, i + 16).map(async (d) => alive.set(d, await exists(d))));
+  }
+  let gone = all.filter((d) => !alive.get(d));
+  if (gone.length > checked.length / 3) {
+    // that many missing means lookups aren't working here, not that the sites are gone
+    console.warn(`pakistan: ${gone.length} of ${checked.length} domains didn't resolve; DNS looks unavailable, keeping all`);
+    for (const d of gone) alive.set(d, true);
+    gone = [];
+  }
+  for (const d of gone) problems.push(`pakistan: ${d} doesn't exist (left out)`);
+  if (gone.length) console.warn(`pakistan: left out ${gone.join(', ')}`);
+  const write = (id, suffixes) => writeFileSync(join(setsDir, `geosite-pk-${id}.json`),
+    JSON.stringify({ version: 1, rules: [{ domain_suffix: suffixes }] }));
+  mkdirSync(setsDir, { recursive: true });
+  const out = [];
+  const nonPk = all.filter((d) => alive.get(d) && !d.endsWith('.pk'));
+  write('all', ['.pk', ...nonPk]);
+  out.push({ id: 'all', label: 'Pakistani websites (all)', count: nonPk.length, allPk: true, examples: ['every .pk site', ...nonPk.slice(0, 5)] });
+  for (const l of lists) {
+    const domains = l.domains.filter((d) => alive.get(d));
+    if (!domains.length) continue;
+    write(l.id, domains);
+    out.push({ id: l.id, label: l.label, count: domains.length, examples: domains.slice(0, 6) });
+  }
+  console.log(`pakistan: ${out.length} lists, ${all.length - gone.length} domains`);
+  return out;
+}
+
 async function main() {
   const catalog = JSON.parse(readFileSync(join(root, 'data/catalog.json'), 'utf8'));
   const lists = {};
@@ -186,6 +245,8 @@ async function main() {
   const nameCount = await buildAsnNames(new Set(mcAsns), join(publicDir, 'data/asn-names.tsv'));
   if (nameCount) console.log(`network names: ${nameCount}`);
 
+  const pakistan = await buildPakistan(problems);
+
   const index = {
     generated: new Date().toISOString(),
     asnNames: nameCount ? 'data/asn-names.tsv' : null,
@@ -200,9 +261,11 @@ async function main() {
       country: raw('sn_ip', 'geoip-{n}.srs'),
       service: `${pagesUrl}/sets/geoip-{n}.srs`,
       asn_mirror: `${pagesUrl}/sets/geoip-as{n}.srs`,
+      pk: `${pagesUrl}/sets/geosite-pk-{n}.json`,
       asn: raw('mc', 'asn/AS{n}.srs'),
       block: raw('hg', 'block/{n}.srs'),
     },
+    pakistan,
     counts: { sites: sites.length, countries: snCountries.length, services: services.length, asns: mcAsns.length, block: hgBlock.length },
     sites,
     countries: snCountries,
