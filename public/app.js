@@ -200,7 +200,7 @@ function toBuilderState() {
   }
   const rules = [];
   const mk = (name, outbound, items) => ({ name, outbound, enabled: true, items, ruleSets: items.map(itemUrl) });
-  if (state.blocked.length) rules.push(mk('Blocked', 'block', state.blocked));
+  if (state.blocked.length) rules.push(mk('AdBlock', 'block', state.blocked));
   if (state.mode !== 'off' && state.picks.length) rules.push(mk(MODES[state.mode].row, MODES[state.mode].out, state.picks));
   return { builtins: state.builtins, regionSet: state.regionSet, fallback: state.mode === 'include' ? 'direct' : 'proxy', rules };
 }
@@ -514,6 +514,47 @@ function chipList(items, remove) {
   return wrap;
 }
 
+const CATEGORY_ORDER = [['services', 'Services'], ['countries', 'Countries'], ['sites', 'Websites'], ['asn', 'Networks'], ['block', 'AdBlock'], ['url', 'Other']];
+const KIND_CATEGORY = { service: 'services', country: 'countries', site: 'sites', asn: 'asn', block: 'block', url: 'url' };
+
+/** Picks as a list grouped by category; a popular service picked whole counts as one Services row. */
+function groupedList(items, remove, lead, flat = false) {
+  const keys = new Set(items.map(itemKey));
+  const used = new Set();
+  const rows = [];
+  for (const f of index.featured) {
+    const fi = featuredItems(f);
+    if (fi.every((i) => keys.has(itemKey(i)) && !used.has(itemKey(i)))) {
+      fi.forEach((i) => used.add(itemKey(i)));
+      rows.push({ cat: 'services', label: f.label, kind: describeFeatured(f), visual: visual({ domain: f.domain, letter: f.label }), members: items.filter((i) => fi.some((x) => itemKey(x) === itemKey(i))) });
+    }
+  }
+  for (const item of items) {
+    if (used.has(itemKey(item))) continue;
+    rows.push({ cat: KIND_CATEGORY[item.kind] || 'url', label: itemLabel(item), kind: item.kind === 'service' ? 'IP ranges' : item.kind === 'block' ? (item.n.startsWith('geoip') ? 'IP list' : 'domains') : '', visual: itemVisual(item), members: [item] });
+  }
+  const wrap = document.createElement('div');
+  wrap.className = 'picks';
+  if (lead) wrap.append(lead);
+  for (const [cat, title] of CATEGORY_ORDER) {
+    const inCat = rows.filter((r) => r.cat === cat).sort((a, b) => az(a.label, b.label));
+    if (!inCat.length) continue;
+    const group = document.createElement('div');
+    group.className = 'pick-group';
+    group.innerHTML = `${flat ? '' : `<div class="pick-cat">${title}<span class="pick-n">${inCat.length}</span></div>`}<ul class="pick-list"></ul>`;
+    for (const r of inCat) {
+      const li = document.createElement('li');
+      li.className = 'pick';
+      li.title = r.members.map(itemUrl).join('\n');
+      li.innerHTML = `${r.visual}<span class="label">${escapeHtml(r.label)}</span>${r.kind ? `<span class="kind">${escapeHtml(r.kind)}</span>` : ''}<button type="button" class="iconbtn" aria-label="Remove ${escapeHtml(r.label)}">${icon('i-x')}</button>`;
+      $('button', li).onclick = () => remove(r.members);
+      $('ul', group).append(li);
+    }
+    wrap.append(group);
+  }
+  return wrap;
+}
+
 function routeRow({ n, title, desc, out, key, on, toggle, muted, body, right }) {
   const li = document.createElement('li');
   li.className = `route-row${muted ? ' is-off' : ''}`;
@@ -584,8 +625,8 @@ function renderRoute() {
   } else {
     if (state.blocked.length) {
       ol.append(routeRow({
-        n: ++n, title: 'Blocked', out: 'block', key: 'blocked',
-        body: chipList(state.blocked, (gone) => { state.blocked = state.blocked.filter((x) => !gone.includes(x)); render(); }),
+        n: ++n, title: 'AdBlock', out: 'block', key: 'blocked',
+        body: groupedList(state.blocked, (gone) => { state.blocked = state.blocked.filter((x) => !gone.includes(x)); render(); }, null, true),
       }));
     }
     const m = MODES[state.mode];
@@ -593,16 +634,14 @@ function renderRoute() {
     // Exclude: the local network bypasses the VPN too (Hiddify's Bypass LAN rule), shown as the first item
     const lan = state.mode === 'exclude' && state.builtins.bypassLan;
     if (state.picks.length || lan) {
-      const chips = chipList(state.picks, (gone) => { state.picks = state.picks.filter((x) => !gone.includes(x)); render(); });
+      let lead = null;
       if (lan) {
-        const chip = document.createElement('span');
-        chip.className = 'chip chip-lan';
-        chip.title = 'Hiddify’s Bypass LAN rule: private and local addresses';
-        chip.innerHTML = `${visual({ letter: 'L' })}<span class="label">Local network (LAN)</span><span class="kind">built-in</span><button type="button" aria-label="Stop excluding the local network">${icon('i-x')}</button>`;
-        $('button', chip).onclick = () => { state.builtins.bypassLan = false; render(); };
-        chips.prepend(chip);
+        lead = document.createElement('div');
+        lead.className = 'pick-group';
+        lead.innerHTML = `<div class="pick-cat">Local network<span class="pick-n">1</span></div><ul class="pick-list"><li class="pick chip-lan" title="Hiddify’s Bypass LAN rule: private and local addresses">${visual({ letter: 'L' })}<span class="label">Local network (LAN)</span><span class="kind">built-in</span><button type="button" class="iconbtn" aria-label="Stop excluding the local network">${icon('i-x')}</button></li></ul>`;
+        $('button', lead).onclick = () => { state.builtins.bypassLan = false; render(); };
       }
-      body.append(chips);
+      body.append(groupedList(state.picks, (gone) => { state.picks = state.picks.filter((x) => !gone.includes(x)); render(); }, lead));
     } else {
       const p = document.createElement('p');
       p.className = 'route-empty';
@@ -613,26 +652,6 @@ function renderRoute() {
     }
     ol.append(routeRow({ n: ++n, title: m.row, out: m.out, key: 'picks', body }));
   }
-
-  // everything else
-  let right = null;
-  if (isAdvanced()) {
-    right = document.createElement('div');
-    right.className = 'segmented seg-sm';
-    right.id = 'fallback';
-    right.setAttribute('role', 'radiogroup');
-    right.setAttribute('aria-label', 'Everything else');
-    right.innerHTML = ['direct', 'proxy'].map((v) => `<button type="button" role="radio" data-value="${v}" aria-checked="${state.fallback === v}" tabindex="${state.fallback === v ? 0 : -1}">${icon(OUT[v].icon)}${OUT[v].label}</button>`).join('');
-    right.onclick = (e) => { const b = e.target.closest('button'); if (b) { state.fallback = b.dataset.value; render(); } };
-    radioKeys(right, (b) => { state.fallback = b.dataset.value; render(); });
-  }
-  const fallbackOut = toBuilderState().fallback;
-  ol.append(routeRow({
-    n: '∞', title: '<b>Everything else</b>', key: 'else', out: right ? null : fallbackOut, right,
-    desc: fallbackOut === 'direct'
-      ? 'Two catch-all rules are added at the end for this, since Hiddify can’t set its default to Direct.'
-      : 'Hiddify sends anything no rule matched through the VPN.',
-  }));
 
   if (isAdvanced()) {
     const region = document.createElement('li');
@@ -826,7 +845,6 @@ async function removeRule(rule) {
 function renderOutput() {
   const built = toBuilderState();
   const notes = isAdvanced() && state.rules.some(ruleHasContent) ? lint(built).filter((n) => n.level === 'warn') : [];
-  if (state.mode === 'include' && !state.picks.length) notes.unshift({ level: 'info', text: 'Nothing picked: all traffic, your local network included, connects directly through your ISP.' });
   $$('#notes .note:not(.transient)').forEach((n) => n.remove());
   $('#notes').insertAdjacentHTML('beforeend', notes.map((n) => `<div class="note ${n.level}">${icon(n.level === 'warn' ? 'i-alert' : 'i-info')}<span>${escapeHtml(n.text)}</span></div>`).join(''));
   $('#ruleCount').textContent = pickCount() || '';
