@@ -723,3 +723,38 @@ select option { background: var(--surface); color: var(--text); }
   .mode-tabs .tab .ic { display: inline-block; margin-right: 6px; }
   .mode-box { height: auto; min-height: var(--ctl-h); padding: 7px 10px; white-space: normal; line-height: 1.35; }
 }
+
+/* ---------- one box: built-ins, AdBlock and your picks as sections ---------- */
+.route { gap: 0; border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--surface); overflow: hidden; }
+.route > .route-row,
+.route > .route-row[data-row="picks"],
+.route > .route-row[data-row="blocked"] {
+  border: 0; border-radius: 0; box-shadow: none; background: none; margin: 0;
+  padding: 10px var(--s3); border-top: 1px solid var(--border);
+}
+.route > .route-row:first-child { border-top: 0; }
+.route > .route-row.builtin-row { display: none; }
+
+.picks { margin: 6px 0 2px 34px; display: flex; flex-direction: column; gap: 8px; }
+.pick-cat {
+  display: flex; align-items: center; gap: 6px; padding: 2px 0 4px;
+  font-size: var(--fs-meta); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--text-3);
+}
+.pick-n { font-weight: 500; letter-spacing: 0; color: var(--text-3); opacity: .8; }
+.pick-list { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border); border-radius: var(--r-md); overflow: hidden; }
+.pick {
+  display: flex; align-items: center; gap: 10px; min-height: 36px; padding: 3px 4px 3px 10px;
+  border-top: 1px solid var(--border); background: var(--surface-2);
+}
+.pick:first-child { border-top: 0; }
+.pick:hover { background: var(--hover); }
+.pick .label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pick .kind { font-size: var(--fs-meta); color: var(--text-3); white-space: nowrap; }
+.pick .iconbtn { width: 28px; height: 28px; }
+.pick .iconbtn:hover { background: var(--block-soft); color: var(--block); }
+.pick .iconbtn .ic { width: 14px; height: 14px; }
+@media (max-width: 600px) {
+  .picks { margin-left: 0; }
+  .route > .route-row, .route > .route-row[data-row="picks"], .route > .route-row[data-row="blocked"] { padding: 10px var(--s2); }
+  .pick { min-height: 42px; }
+}

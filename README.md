@@ -1,4 +1,4 @@
-# Hiddify app rule Builder
+# Hiddify Split Tunneling
 
 A web page for building [Hiddify](https://github.com/hiddify/hiddify-app)'s routing rules (`route_rules.json`)
 from ready-made rule sets: choose what goes through the VPN, what goes direct through your ISP and what
