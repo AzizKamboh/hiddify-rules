@@ -1,0 +1,102 @@
+{
+  "_comment": "Hand-kept picks shown at the top of the page. site = domain list (SagerNet geosite, else MetaCubeX geosite); ip = MetaCubeX service IP list (mirrored as geoip-<name>.srs); asn = MetaCubeX ASN list (mirrored as geoip-as<n>.srs). build-index checks every name against the upstream lists.",
+  "featured": [
+    { "group": "Video & music", "id": "youtube", "label": "YouTube", "site": ["youtube"], "ip": [] },
+    { "group": "Video & music", "id": "netflix", "label": "Netflix", "site": ["netflix"], "ip": ["netflix"] },
+    { "group": "Video & music", "id": "twitch", "label": "Twitch", "site": ["twitch"], "ip": [] },
+    { "group": "Video & music", "id": "spotify", "label": "Spotify", "site": ["spotify"], "ip": [] },
+    { "group": "Video & music", "id": "primevideo", "label": "Prime Video", "site": ["primevideo"], "ip": [] },
+    { "group": "Video & music", "id": "disney", "label": "Disney+", "site": ["disney"], "ip": [] },
+    { "group": "Video & music", "id": "soundcloud", "label": "SoundCloud", "site": ["soundcloud"], "ip": [] },
+
+    { "group": "Social & messaging", "id": "telegram", "label": "Telegram", "site": ["telegram"], "ip": ["telegram"] },
+    { "group": "Social & messaging", "id": "whatsapp", "label": "WhatsApp", "site": ["whatsapp"], "ip": [] },
+    { "group": "Social & messaging", "id": "facebook", "label": "Facebook", "site": ["facebook"], "ip": ["facebook"] },
+    { "group": "Social & messaging", "id": "instagram", "label": "Instagram", "site": ["instagram"], "ip": [] },
+    { "group": "Social & messaging", "id": "twitter", "label": "X / Twitter", "site": ["twitter"], "ip": ["twitter"] },
+    { "group": "Social & messaging", "id": "tiktok", "label": "TikTok", "site": ["tiktok"], "ip": [] },
+    { "group": "Social & messaging", "id": "discord", "label": "Discord", "site": ["discord"], "ip": [] },
+    { "group": "Social & messaging", "id": "reddit", "label": "Reddit", "site": ["reddit"], "ip": [] },
+    { "group": "Social & messaging", "id": "signal", "label": "Signal", "site": ["signal"], "ip": [] },
+    { "group": "Social & messaging", "id": "linkedin", "label": "LinkedIn", "site": ["linkedin"], "ip": [] },
+
+    { "group": "AI", "id": "openai", "label": "ChatGPT / OpenAI", "site": ["openai"], "ip": [] },
+    { "group": "AI", "id": "anthropic", "label": "Claude / Anthropic", "site": ["anthropic"], "ip": [] },
+    { "group": "AI", "id": "google-gemini", "label": "Gemini", "site": ["google-gemini"], "ip": [] },
+    { "group": "AI", "id": "perplexity", "label": "Perplexity", "site": ["perplexity"], "ip": [] },
+    { "group": "AI", "id": "category-ai-!cn", "label": "All AI services", "site": ["category-ai-!cn"], "ip": [] },
+
+    { "group": "Big platforms", "id": "google", "label": "Google (all)", "site": ["google"], "ip": ["google"] },
+    { "group": "Big platforms", "id": "microsoft", "label": "Microsoft", "site": ["microsoft"], "ip": [] },
+    { "group": "Big platforms", "id": "apple", "label": "Apple", "site": ["apple"], "ip": [] },
+    { "group": "Big platforms", "id": "amazon", "label": "Amazon", "site": ["amazon"], "ip": [] },
+    { "group": "Big platforms", "id": "cloudflare", "label": "Cloudflare", "site": ["cloudflare"], "ip": ["cloudflare"] },
+
+    { "group": "Dev & tools", "id": "github", "label": "GitHub", "site": ["github"], "ip": [] },
+    { "group": "Dev & tools", "id": "docker", "label": "Docker", "site": ["docker"], "ip": [] },
+    { "group": "Dev & tools", "id": "jetbrains", "label": "JetBrains", "site": ["jetbrains"], "ip": [] },
+
+    { "group": "Gaming", "id": "steam", "label": "Steam", "site": ["steam"], "ip": [] },
+    { "group": "Gaming", "id": "epicgames", "label": "Epic Games", "site": ["epicgames"], "ip": [] },
+    { "group": "Gaming", "id": "category-games", "label": "All games", "site": ["category-games"], "ip": [] },
+
+    { "group": "Privacy & other", "id": "tor", "label": "Tor network", "site": ["tor"], "ip": ["tor"] },
+    { "group": "Privacy & other", "id": "category-porn", "label": "Adult sites", "site": ["category-porn"], "ip": [] }
+  ],
+  "asnGroups": [
+    {
+      "group": "Pakistan networks",
+      "items": [
+        { "asn": 17557, "label": "PTCL" },
+        { "asn": 45595, "label": "PTCL (PKTELECOM)" },
+        { "asn": 9541, "label": "Cybernet" },
+        { "asn": 23674, "label": "Nayatel" },
+        { "asn": 38193, "label": "Transworld" },
+        { "asn": 24499, "label": "Telenor Pakistan" },
+        { "asn": 45669, "label": "Jazz (Mobilink)" },
+        { "asn": 59257, "label": "Zong (CMPak)" }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "id": "youtube-only",
+      "label": "Only YouTube through the VPN",
+      "description": "YouTube goes through the VPN; everything else goes out through your ISP.",
+      "fallback": "direct",
+      "rules": [{ "name": "YouTube via VPN", "outbound": "proxy", "featured": ["youtube"] }]
+    },
+    {
+      "id": "pk-direct",
+      "label": "Pakistan direct, rest through the VPN",
+      "description": "Pakistani sites (.pk), Pakistani IP ranges and Pakistani networks go direct; everything else through the VPN.",
+      "fallback": "proxy",
+      "rules": [{
+        "name": "Pakistan direct",
+        "outbound": "direct",
+        "countries": ["pk"],
+        "asnGroup": "Pakistan networks",
+        "domainSuffixes": [".pk"]
+      }]
+    },
+    {
+      "id": "social-ai",
+      "label": "Social, messaging & AI through the VPN",
+      "description": "Common social, messaging and AI services through the VPN; everything else direct.",
+      "fallback": "direct",
+      "rules": [{
+        "name": "Social & AI via VPN",
+        "outbound": "proxy",
+        "featured": ["telegram", "whatsapp", "facebook", "instagram", "twitter", "tiktok", "discord", "openai", "anthropic", "google-gemini"]
+      }]
+    },
+    {
+      "id": "block-ads",
+      "label": "Everything through the VPN, ads blocked",
+      "description": "Turns on Hiddify's built-in ads and malware block; everything goes through the VPN.",
+      "fallback": "proxy",
+      "builtins": { "blockAds": true },
+      "rules": []
+    }
+  ]
+}

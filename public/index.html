@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hiddify Rules Builder</title>
+  <meta name="description" content="Build Hiddify route_rules.json from daily-synced SagerNet and MetaCubeX rule sets.">
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%233b6ef5'/><path d='M8 22l6-12 4 8 3-5 3 9' stroke='white' stroke-width='2.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>">
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <h1>Hiddify Rules Builder</h1>
+      <p class="sub">Pick what goes through the VPN, what goes direct and what gets blocked, then import the result into Hiddify.</p>
+    </div>
+    <div class="top-actions">
+      <label class="preset">
+        <span>Start from</span>
+        <select id="preset"><option value="">Choose a preset…</option></select>
+      </label>
+      <label class="btn ghost" title="Load a route_rules.json exported from Hiddify or from this page">
+        Load my rules
+        <input type="file" id="loadFile" accept=".json,application/json" hidden>
+      </label>
+      <button class="btn ghost" id="reset" type="button">Reset</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="panel picker" aria-label="Rule lists">
+      <div class="picker-head">
+        <div class="active-target" id="activeTarget"></div>
+        <input type="search" id="search" placeholder="Search lists… (e.g. telegram, pk, AS17557)" autocomplete="off">
+        <nav class="tabs" id="tabs" role="tablist"></nav>
+      </div>
+      <div class="list" id="list" role="listbox" aria-label="Available lists"></div>
+    </section>
+
+    <section class="panel rules" aria-label="Your rules">
+      <div class="section-title">
+        <h2>Your rules</h2>
+        <span class="hint">Checked from top to bottom; the first match wins.</span>
+      </div>
+
+      <div class="builtins" id="builtins"></div>
+      <div id="ruleList"></div>
+      <button class="btn add" id="addRule" type="button">+ Add rule</button>
+
+      <div class="fallback">
+        <h3>Everything else</h3>
+        <label class="radio"><input type="radio" name="fallback" value="direct"> <span><b>Direct</b> through my ISP</span></label>
+        <label class="radio"><input type="radio" name="fallback" value="proxy"> <span><b>Through the VPN</b> (Hiddify's default)</span></label>
+        <p class="note" id="fallbackNote"></p>
+      </div>
+
+      <div class="output">
+        <div class="notes" id="notes"></div>
+        <div class="out-actions">
+          <button class="btn primary" id="download" type="button">Download route_rules.json</button>
+          <a class="btn" id="openHiddify" href="#">Open in Hiddify</a>
+          <button class="btn" id="copyLink" type="button">Copy import link</button>
+        </div>
+        <details class="howto">
+          <summary>How to import</summary>
+          <ol>
+            <li><b>File:</b> Hiddify → Settings → Routing → <b>⋮</b> → import from file → choose <code>route_rules.json</code>.</li>
+            <li><b>Link:</b> click <b>Open in Hiddify</b>, or copy the link and use <b>⋮ → import from clipboard</b>. Hiddify asks before replacing your rules.</li>
+            <li>Reconnect from the Home page so the new rules load.</li>
+          </ol>
+          <p>Importing replaces all your routing rules. Hiddify's built-in rules keep their own content (it differs between Windows and Android); only their on/off switch comes from here.</p>
+        </details>
+        <details>
+          <summary>Preview JSON</summary>
+          <pre id="preview"></pre>
+        </details>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot" id="foot"></footer>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <template id="ruleTpl">
+    <article class="rule">
+      <div class="rule-head">
+        <input class="rule-name" aria-label="Rule name">
+        <select class="rule-out" aria-label="Send to">
+          <option value="proxy">VPN</option>
+          <option value="direct">Direct</option>
+          <option value="direct_with_fragment">Direct + fragment</option>
+          <option value="block">Block</option>
+        </select>
+        <label class="switch" title="Rule on/off"><input type="checkbox" class="rule-on"><span></span></label>
+        <div class="rule-move">
+          <button type="button" class="icon up" title="Move up" aria-label="Move up">↑</button>
+          <button type="button" class="icon down" title="Move down" aria-label="Move down">↓</button>
+          <button type="button" class="icon del" title="Delete rule" aria-label="Delete rule">✕</button>
+        </div>
+      </div>
+      <div class="chips"></div>
+      <button type="button" class="target-btn">Add lists to this rule</button>
+      <details class="extra">
+        <summary>Domains, IPs, ports and apps</summary>
+        <div class="extra-grid"></div>
+      </details>
+    </article>
+  </template>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

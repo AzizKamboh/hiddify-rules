@@ -1,2 +1,5 @@
 node_modules/
 .cache/
+# built by scripts/build-index.mjs (CI builds them daily)
+public/data/
+public/sets/
