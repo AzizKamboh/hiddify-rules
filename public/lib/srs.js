@@ -244,10 +244,11 @@ export function summarize(rules) {
     const into = inv ? out.except : out.match;
     for (const [field, values] of Object.entries(rule)) {
       if (field === 'invert' || field === 'type') continue;
-      const list = Array.isArray(values) ? values.map(String) : [JSON.stringify(values)];
+      // JSON sources write a one-item list as a plain string
+      const list = Array.isArray(values) ? values.map(String) : typeof values === 'object' ? [JSON.stringify(values)] : [String(values)];
       const sec = SECTION_OF[field];
-      if (sec) into[sec].push(...list);
-      else (into.other[field] ||= []).push(...list);
+      const dest = sec ? into[sec] : (into.other[field] ||= []);
+      for (const v of list) dest.push(v); // not push(...list): big lists overflow the call stack
     }
   };
   rules.forEach((r) => walk(r, false));

@@ -36,7 +36,8 @@ const SAMPLES = [
 /** Rules in a comparable form: sorted values, a domain that is also a suffix dropped (sing-box drops it too). */
 const norm = (rules) => rules.map((r) => {
   if (r.type === 'logical') return JSON.stringify({ ...r, rules: norm(r.rules) });
-  const o = Object.fromEntries(Object.entries(r).map(([k, v]) => [k, Array.isArray(v) ? [...new Set(v.map(String))].sort() : v]));
+  // sing-box writes a one-item list as a plain string
+  const o = Object.fromEntries(Object.entries(r).map(([k, v]) => [k, k === 'invert' ? v : [...new Set([].concat(v).map(String))].sort()]));
   if (o.domain && o.domain_suffix) { const s = new Set(o.domain_suffix); o.domain = o.domain.filter((x) => !s.has(x)); if (!o.domain.length) delete o.domain; }
   return JSON.stringify(Object.fromEntries(Object.entries(o).sort()));
 });

@@ -50,8 +50,9 @@ async function load(part) {
 function merge(into, from) {
   for (const side of ['match', 'except']) {
     for (const [k, v] of Object.entries(from[side])) {
-      if (Array.isArray(v)) into[side][k].push(...v);
-      else for (const [f, vals] of Object.entries(v)) (into[side].other[f] ||= []).push(...vals);
+      const add = (dest, vals) => { for (const x of vals) dest.push(x); };
+      if (Array.isArray(v)) add(into[side][k], v);
+      else for (const [f, vals] of Object.entries(v)) add(into[side].other[f] ||= [], vals);
     }
   }
 }
