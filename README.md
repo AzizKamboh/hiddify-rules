@@ -19,6 +19,8 @@ see below): Hiddify downloads them straight from their source and keeps them up 
 | [MetaCubeX/meta-rules-dat](https://github.com/MetaCubeX/meta-rules-dat/tree/sing) | Service IP lists (Telegram, Google, Netflix, Cloudflare…), ~83,000 network (ASN) lists, and site lists SagerNet doesn't have |
 | [hiddify/hiddify-geo](https://github.com/hiddify/hiddify-geo/tree/rule-set) | Ad, malware, phishing and miner block lists (the same ones Hiddify's built-in rule uses) |
 | [iptoasn.com](https://iptoasn.com/) | Network names and countries for network search (public domain; names only) |
+| [AdGuard DNS filter](https://github.com/AdguardTeam/AdGuardSDNSFilter) | AdBlock *Adguard*: AdGuard Base, Social, Tracking, Mobile Ads, EasyList and EasyPrivacy for DNS (GPL-3.0); converted daily with sing-box |
+| [HaGeZi Multi NORMAL](https://github.com/hagezi/dns-blocklists) | AdBlock *Hagezi*: ads, trackers, telemetry, phishing, malware, scams (GPL-3.0); converted daily with sing-box |
 
 Country flags: [flag-icons](https://github.com/lipis/flag-icons) (MIT), in `public/flags/`. Service and website icons are loaded from Google's favicon service, with DuckDuckGo's as a fallback.
 
