@@ -532,6 +532,8 @@ function entryButton(e) {
   return frag;
 }
 
+// the lists Hiddify's own "Ads and malware" switch uses (hiddify-core config/builder.go)
+const HIDDIFY_AD_LISTS = ['geosite-category-ads-all', 'geosite-malware', 'geosite-phishing', 'geosite-cryptominers', 'geoip-phishing', 'geoip-malware'];
 const PEEK_KIND = { site: 'websites', service: 'IPs', country: 'country IPs', asn: 'network', block: 'block list', pk: 'websites', url: 'list' };
 
 /** The eye button: opens what a list holds in a new tab. */
@@ -630,6 +632,7 @@ function groupedList(items, remove, lead, flat = false) {
       li.title = r.members.map(itemUrl).join('\n');
       li.innerHTML = `${r.visual}<span class="label">${escapeHtml(r.label)}</span>${r.kind ? `<span class="kind">${escapeHtml(r.kind)}</span>` : ''}<button type="button" class="iconbtn" aria-label="Remove ${escapeHtml(r.label)}">${icon('i-x')}</button>`;
       $('button', li).onclick = () => remove(r.members);
+      $('.label', li).after(peekLink(r.label, r.members));
       $('ul', group).append(li);
     }
     wrap.append(group);
@@ -677,6 +680,7 @@ function renderRoute() {
     row.innerHTML = `<span class="route-title">${escapeHtml(name)}<button type="button" class="tip" title="${escapeHtml(desc)}" aria-label="More about this">${icon('i-info')}</button></span>${outBadge(out)}<label class="switch"><input type="checkbox" role="switch" data-fk="b:${key}" aria-label="${escapeHtml(name)}"><span class="track"></span></label>`;
     $('input', row).checked = Boolean(state.builtins[key]);
     $('input', row).onchange = (e) => { state.builtins[key] = e.target.checked; render(`b:${key}`); };
+    if (key === 'blockAds') $('.route-title', row).after(peekLink(name, HIDDIFY_AD_LISTS.map((n) => ({ kind: 'block', n }))));
     $('.builtins-body', section).append(row);
   }
   // Bypass region only exists in Hiddify when a region other than "Other" is set there (Pakistan is Other).
