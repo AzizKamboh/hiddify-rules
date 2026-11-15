@@ -229,8 +229,15 @@ body {
 .item[aria-pressed="true"] .check .ic { opacity: 1; transform: none; }
 .item[aria-pressed="mixed"] .check { background: var(--accent); border-color: var(--accent); }
 .item[aria-pressed="mixed"] .check .ic { opacity: 1; transform: none; }
-.item-row { display: flex; align-items: center; gap: 2px; }
-.item-row .item { flex: 1; min-width: 0; }
+.item-row {
+  display: flex; align-items: center; gap: 4px; padding-right: var(--s2); border-radius: var(--r-md);
+  transition: background var(--t-fast);
+}
+.item-row:hover { background: var(--hover); }
+.item-row[data-state="all"] { background: var(--accent-soft); }
+.item-row .item { flex: 1; min-width: 0; background: none; }
+.item-row .meta { font-size: var(--fs-meta); color: var(--text-3); white-space: nowrap; cursor: pointer; }
+.item-row:has(.expand) { padding-right: 0; }
 .expand {
   flex: none; display: grid; place-items: center; width: 30px; height: 30px; padding: 0;
   background: none; border: 0; border-radius: var(--r-md); color: var(--text-3); cursor: pointer;
@@ -238,14 +245,14 @@ body {
 .expand:hover { background: var(--hover); color: var(--text); }
 .expand .ic { width: 16px; height: 16px; transition: transform var(--t-fast) var(--ease); }
 .expand[aria-expanded="true"] .ic { transform: rotate(90deg); }
-.item.child { padding-left: 34px; }
+.item-row.child .item { padding-left: 34px; }
 .peek {
-  flex: none; display: grid; place-items: center; width: 30px; height: 30px; border-radius: var(--r-md);
+  flex: none; display: grid; place-items: center; width: 24px; height: 24px; border-radius: var(--r-sm);
   color: var(--text-3); opacity: 0; transition: opacity var(--t-fast), background var(--t-fast), color var(--t-fast);
 }
-.peek .ic { width: 16px; height: 16px; }
-.item-row:hover .peek, .peek:focus-visible { opacity: 1; }
-.peek:hover { background: var(--hover); color: var(--accent-text); }
+.peek .ic { width: 15px; height: 15px; }
+.item-row:hover .peek, .item-row:focus-within .peek { opacity: 1; }
+.peek:hover { background: var(--surface-3); color: var(--accent-text); }
 @media (hover: none) { .peek { opacity: .75; } }
 
 /* ---------- "what's inside" page (view.html) ---------- */

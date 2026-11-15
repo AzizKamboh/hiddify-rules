@@ -500,14 +500,22 @@ function entryButton(e) {
   b.type = 'button';
   b.className = e.parent ? 'item child' : 'item';
   b.setAttribute('aria-pressed', st === 'some' ? 'mixed' : String(on));
-  b.innerHTML = `<span class="check">${icon(st === 'some' ? 'i-minus' : 'i-check')}</span>${e.visual || ''}<span class="name">${escapeHtml(e.label)}</span>`
-    + (e.meta ? `<span class="meta">${escapeHtml(e.meta)}</span>` : '');
+  b.innerHTML = `<span class="check">${icon(st === 'some' ? 'i-minus' : 'i-check')}</span>${e.visual || ''}<span class="name">${escapeHtml(e.label)}</span>`;
   if (e.title) b.title = e.title;
   // a part of a bundle switches only itself, even while the whole bundle is picked
   b.onclick = () => toggleItems(e.items, !on, e.parent);
+  // the line: [tick, icon, name] [eye] [what it holds]; the eye shows on hover
   const row = document.createElement('div');
   row.className = e.parent ? 'item-row child' : 'item-row';
+  row.dataset.state = st;
   row.append(b, peekLink(e.label, e.items));
+  if (e.meta) {
+    const meta = document.createElement('span');
+    meta.className = 'meta';
+    meta.textContent = e.meta;
+    meta.onclick = () => b.click();
+    row.append(meta);
+  }
   if (!e.children) return row;
   const open = pkOpen || Boolean(query.trim());
   const x = document.createElement('button');
