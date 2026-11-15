@@ -227,6 +227,18 @@ body {
 .item[aria-pressed="true"] { background: var(--accent-soft); }
 .item[aria-pressed="true"] .check { background: var(--accent); border-color: var(--accent); }
 .item[aria-pressed="true"] .check .ic { opacity: 1; transform: none; }
+.item[aria-pressed="mixed"] .check { background: var(--accent); border-color: var(--accent); }
+.item[aria-pressed="mixed"] .check .ic { opacity: 1; transform: none; }
+.item-row { display: flex; align-items: center; gap: 2px; }
+.item-row .item { flex: 1; min-width: 0; }
+.expand {
+  flex: none; display: grid; place-items: center; width: 30px; height: 30px; padding: 0;
+  background: none; border: 0; border-radius: var(--r-md); color: var(--text-3); cursor: pointer;
+}
+.expand:hover { background: var(--hover); color: var(--text); }
+.expand .ic { width: 16px; height: 16px; transition: transform var(--t-fast) var(--ease); }
+.expand[aria-expanded="true"] .ic { transform: rotate(90deg); }
+.item.child { padding-left: 34px; }
 .favicon, .flag, .letter { flex: none; }
 .favicon { width: 18px; height: 18px; border-radius: 4px; object-fit: contain; }
 .flag { width: 20px; height: 15px; border-radius: 2px; object-fit: cover; box-shadow: 0 0 0 1px var(--border); }
