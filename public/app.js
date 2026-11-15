@@ -51,6 +51,7 @@ let state = null;
 let tab = 'services';
 let query = '';
 let entriesCache = null;
+let pkOpen = false;     // Pakistan bundle row opened to show its parts
 let shownEntries = [];   // lists on screen in the library, for Select all
 
 // ---------- state ----------
@@ -332,15 +333,21 @@ function allEntries() {
     services.push({ tab: 'services', group: IP_GROUP, visual: visual({ domain: index.serviceDomains?.[s], letter: s }), label: `${s[0].toUpperCase()}${s.slice(1)} IP ranges`, meta: 'IPs only', items: [{ kind: 'service', n: s }], search: `${s} ip` });
   }
   services.sort((a, b) => az(a.group, b.group) || az(a.label, b.label));
-  // Pakistan first: the page is mostly used from Pakistan
-  for (const [i, l] of (index.pakistan || []).filter((x) => x.id === 'all').entries()) {
-    if (i === 0) {
-      out.push({ tab: 'services', group: 'Pakistan', visual: visual({ flag: 'pk' }), label: PK_BUNDLE, meta: 'sites + country + networks', items: pkBundleItems(),
-        title: 'Pakistani websites, Pakistan’s country IP list and the Pakistan networks together', search: `${PK_BUNDLE} pakistan pk local` });
-    }
-    out.push({ tab: 'services', group: 'Pakistan', visual: visual({ flag: 'pk' }), label: l.label,
-      meta: l.allPk ? `.pk + ${fmtCount(l.count)} sites` : `${fmtCount(l.count)} sites`, items: [{ kind: 'pk', n: l.id }],
-      title: `For example: ${l.examples.join(', ')} — full lists: github.com/AzizKamboh/hiddify-rules/blob/main/data/pakistan.txt`, search: `${l.label} pakistan pk ${(l.domains || l.examples).join(' ')}` });
+  // Pakistan first: the page is mostly used from Pakistan. One row that opens into its three parts.
+  const pkAll = (index.pakistan || []).find((x) => x.id === 'all');
+  if (pkAll) {
+    const flag = visual({ flag: 'pk' });
+    const nets = pkBundleItems().filter((i) => i.kind === 'asn');
+    out.push({ tab: 'services', group: 'Pakistan', visual: flag, label: PK_BUNDLE, meta: 'sites + country + networks', items: pkBundleItems(),
+      title: 'Pakistani websites, Pakistan’s country IP list and the Pakistan networks together',
+      search: `${PK_BUNDLE} pakistan pk local websites ips networks ${(pkAll.domains || pkAll.examples).join(' ')}`,
+      children: [
+        { label: pkAll.label, meta: pkAll.allPk ? `.pk + ${fmtCount(pkAll.count)} sites` : `${fmtCount(pkAll.count)} sites`, items: [{ kind: 'pk', n: 'all' }],
+          title: `For example: ${pkAll.examples.join(', ')} — full lists: github.com/AzizKamboh/hiddify-rules/blob/main/data/pakistan.txt` },
+        { label: 'Pakistan IPs', meta: 'country IP list', items: [{ kind: 'country', n: 'pk' }], title: 'Every IP address registered in Pakistan' },
+        { label: 'Pakistan networks', meta: `${nets.length} networks`, items: nets, title: nets.map((i) => i.label).filter(Boolean).join(', ') },
+      ].map((c) => ({ ...c, visual: flag, parent: PK_BUNDLE })),
+    });
   }
   out.push(...services);
   for (const [n, src] of index.sites) {
@@ -479,23 +486,48 @@ function renderLibrary() {
   list.scrollTop = scroll;
 }
 
-function entryButton(e) {
-  const on = isPicked(e.items);
-  const b = document.createElement('button');
-  b.type = 'button';
-  b.className = 'item';
-  b.setAttribute('aria-pressed', String(on));
-  b.innerHTML = `<span class="check">${icon('i-check')}</span>${e.visual || ''}<span class="name">${escapeHtml(e.label)}</span>`
-    + (e.meta ? `<span class="meta">${escapeHtml(e.meta)}</span>` : '');
-  if (e.title) b.title = e.title;
-  b.onclick = () => toggleItems(e.items, !on);
-  return b;
+/** How much of a list group is picked: 'all', 'some' or 'none'. */
+function pickState(items) {
+  const bucket = bucketFor(items);
+  const n = items.filter((i) => bucket.some((x) => itemKey(x) === itemKey(i))).length;
+  return n === items.length ? 'all' : n ? 'some' : 'none';
 }
 
-function toggleItems(items, add) {
+function entryButton(e) {
+  const st = pickState(e.items);
+  const on = st === 'all';
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = e.parent ? 'item child' : 'item';
+  b.setAttribute('aria-pressed', st === 'some' ? 'mixed' : String(on));
+  b.innerHTML = `<span class="check">${icon(st === 'some' ? 'i-minus' : 'i-check')}</span>${e.visual || ''}<span class="name">${escapeHtml(e.label)}</span>`
+    + (e.meta ? `<span class="meta">${escapeHtml(e.meta)}</span>` : '');
+  if (e.title) b.title = e.title;
+  // a part of a bundle switches only itself, even while the whole bundle is picked
+  b.onclick = () => toggleItems(e.items, !on, e.parent);
+  if (!e.children) return b;
+  const row = document.createElement('div');
+  row.className = 'item-row';
+  const open = pkOpen || Boolean(query.trim());
+  const x = document.createElement('button');
+  x.type = 'button';
+  x.className = 'expand';
+  x.setAttribute('aria-expanded', String(open));
+  x.setAttribute('aria-label', `${open ? 'Hide' : 'Show'} what ${e.label} includes`);
+  x.innerHTML = icon('i-chevron');
+  x.onclick = () => { pkOpen = !open; renderLibrary(); };
+  row.append(b, x);
+  if (!open) return row;
+  const frag = document.createDocumentFragment();
+  frag.append(row, ...e.children.map(entryButton));
+  return frag;
+}
+
+function toggleItems(items, add, partOf = null) {
   const isBlock = items.every((i) => i.kind === 'block');
   const bucket = bucketFor(items);
-  const keep = !add && items.length > 1 ? neededWith(bucket, items, bundles()) : new Set();
+  const others = bundles().filter((g) => g.label !== partOf);
+  const keep = !add && items.length > 1 ? neededWith(bucket, items, others) : new Set();
   for (const item of items) {
     if (keep.has(itemKey(item))) continue;
     const i = bucket.findIndex((x) => itemKey(x) === itemKey(item));
@@ -792,9 +824,10 @@ function toast(text, kind = '') {
   showNote(text, 'warn');
 }
 
-function showNote(text, level = 'info') {
+function showNote(text, level = 'info', extra = '') {
   const el = document.createElement('div');
-  el.className = `note ${level} transient`;
+  el.className = `note ${level} transient ${extra}`.trim();
+  el.dataset.text = text;
   el.innerHTML = `${icon(level === 'warn' ? 'i-alert' : 'i-info')}<span>${escapeHtml(text)}</span>`;
   $('#notes').prepend(el);
   setTimeout(() => el.remove(), 6000);
@@ -940,7 +973,10 @@ async function start() {
     if (!t) return;
     e.preventDefault();
     e.stopPropagation();
-    showNote(t.title);
+    const shown = $('#notes .note.tip-note');
+    const same = shown?.dataset.text === t.title;
+    shown?.remove();
+    if (!same) showNote(t.title, 'info', 'tip-note');
   });
 
   for (const dlg of $$('dialog')) {
