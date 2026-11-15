@@ -34,13 +34,16 @@ jobs:
         # pull requests skip copying the ~83,000 network lists: nothing is deployed from them
         run: node scripts/build-index.mjs ${{ github.event_name == 'pull_request' && '--no-mirror' || '' }}
 
+      - name: Check the page's .srs reader against sing-box
+        run: node scripts/check-srs.mjs
+
       - name: Version the script and style URLs
         # browsers cache Pages files for ~10 minutes; a new URL per deploy keeps
         # the page, script and styles from the same version together
         run: |
           v="${GITHUB_SHA::7}-$(date -u +%Y%m%d%H%M)"
-          sed -i "s/__BUILD__/$v/g" public/index.html public/app.js public/lib/picks.js
-          grep -c "$v" public/index.html public/app.js public/lib/picks.js
+          sed -i "s/__BUILD__/$v/g" public/index.html public/app.js public/lib/picks.js public/view.html public/view.js
+          grep -c "$v" public/index.html public/app.js public/lib/picks.js public/view.html public/view.js
 
       - name: Upload site
         if: github.event_name != 'pull_request'

@@ -46,10 +46,13 @@ traffic the other way, switched-off rules, *Direct + fragment* — are kept exac
 No public rule source covers Pakistan, so this project keeps its own list in
 [`data/pakistan.txt`](data/pakistan.txt) — banks and payments, government and education, news and TV, telecom,
 streaming, shopping and everyday services, sorted into sections for easy editing. The page shows two choices
-first in **Services**:
+first in **Services**, as one **Pakistan** row that opens into its parts:
 
 - **Pakistani websites** — every `.pk` site plus every domain in that file.
-- **Pakistan** — Pakistani websites, Pakistan's country IP list and the Pakistan networks together.
+- **Pakistan IPs** — Pakistan's country IP list.
+- **Pakistan networks** — the Pakistan ISP networks.
+
+Ticking Pakistan picks all three; each part can also be picked on its own.
 
 In Exclude mode that keeps local sites — many of which refuse foreign IPs — on your ISP. The daily build
 publishes the list as `sets/geosite-pk-all.json` (each section also as `sets/geosite-pk-<section>.json`) and
@@ -92,6 +95,14 @@ These details come from the [hiddify-app](https://github.com/hiddify/hiddify-app
   (about 6 MB together).
 - Hiddify downloads rule sets **through the VPN**, so they load once the VPN connects.
 
+## What's inside a list
+
+The eye button next to every list opens it in a new tab: its domains, domain patterns and IP ranges, a search
+that answers "is this domain or IP in the list?", and a .txt download. The page reads sing-box's binary `.srs`
+files itself ([`public/lib/srs.js`](public/lib/srs.js)) — including AdGuard rules, which
+`sing-box rule-set decompile` can't show. Each build checks the reader against sing-box on sample lists
+(`scripts/check-srs.mjs`).
+
 ## Repository layout
 
 ```
@@ -101,6 +112,8 @@ data/catalog.json            hand-kept: services, Pakistan networks
 public/                      the page (plain HTML, CSS and JavaScript, no build step)
 public/lib/hiddify.js        turns the choices into Hiddify's file format and import link
 public/lib/picks.js          grouping of picks (shared lists) and reading uploaded files
+public/lib/srs.js            reads sing-box .srs rule sets for the "what's inside" page (view.html)
+scripts/check-srs.mjs        checks that reader against sing-box's own decompiler in CI
 test/                        checks the output against real exports from Hiddify (Windows and Android),
                              shared lists, and upload → download round trips
 ```
