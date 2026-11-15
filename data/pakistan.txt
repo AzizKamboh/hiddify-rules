@@ -71,7 +71,6 @@ aaj.tv
 hum.tv
 harpalgeo.tv
 arydigital.tv
-aryplus.tv
 geonewsurdu.tv
 ummat.net
 urdupoint.com
@@ -111,6 +110,7 @@ cuecinemas.com
 universalcinemas.com
 nueplex.com
 mjunoon.tv
+aryplus.tv
 
 [shopping] Shopping and food
 khaadi.com
@@ -278,7 +278,6 @@ kpl20.com
 lahorelitfest.com
 lahoremuseum.org
 lahoreqalandars.com
-lalpir.com
 ldacity.com
 mariestopespk.org
 midcityhospital.com
@@ -287,17 +286,14 @@ mindstormstudios.com
 minhaj.org
 mqm.org
 multansultans.com
-mymfb.com
 nationalhospital.org
 nicvd.org
 nixorcollege.org
 nocpakistan.org
-nppmcl.com
 ogdcl.com
 packagesmall.com
 pafcollegesargodha.com
 pakarmymuseumrwp.com
-pakgenpower.com
 pakistanhinducouncil.org
 pakistanpressfoundation.org
 pakistanrugby.com
@@ -307,9 +303,6 @@ piaic.org
 pmln.org
 pnra.org
 psl-t20.com
-punjabthermal.com
-qathermal.com
-sabapower.com
 sdpi.org
 servisgroup.com
 shahidafridifoundation.org
