@@ -145,7 +145,7 @@ function itemUrl(item) {
     case 'service': return fill(u.service);
     case 'pk': return fill(u.pk);
     case 'asn': return fill(index.allAsnsMirrored || index.mirroredAsns.includes(Number(item.n)) ? u.asn_mirror : u.asn);
-    case 'block': return fill(u.block);
+    case 'block': return fill((index.blockExtra || []).includes(item.n) ? u.block_extra : u.block);
     default: return item.n;
   }
 }
@@ -154,7 +154,7 @@ function urlToItem(url) {
   const u = index.urls;
   const tries = [
     ['site', u.site_s], ['site', u.site_m], ['country', u.country], ['service', u.service],
-    ['asn', u.asn_mirror], ['asn', u.asn], ['block', u.block], ['pk', u.pk],
+    ['asn', u.asn_mirror], ['asn', u.asn], ['block', u.block], ['block', u.block_extra], ['pk', u.pk],
   ];
   for (const [kind, tpl] of tries) {
     if (!tpl) continue;
@@ -234,7 +234,7 @@ function networkLabel(raw) {
   return s || raw;
 }
 const SITE_DOMAIN = { wikimedia: 'wikipedia.org' };
-const BLOCK_ICON = (n) => (n.includes('ads') ? 'i-megaphone' : n.includes('malware') ? 'i-bug' : n.includes('phishing') ? 'i-hook' : n.includes('crypto') ? 'i-cpu' : 'i-shield-off');
+const BLOCK_ICON = (n) => (n === 'adguard' || n === 'hagezi' ? 'i-shield-off' : n.includes('ads') ? 'i-megaphone' : n.includes('malware') ? 'i-bug' : n.includes('phishing') ? 'i-hook' : n.includes('crypto') ? 'i-cpu' : 'i-shield-off');
 
 function itemDomain(item) {
   if (item.kind === 'service') return index.serviceDomains?.[item.n];
@@ -356,9 +356,12 @@ function allEntries() {
       out.push({ tab: 'asn', group: g.group, visual: visual({ flag: 'pk' }), label: a.label, meta: `AS${a.asn}`, items: [{ kind: 'asn', n: String(a.asn), label: a.label, cc: 'PK' }], search: `as${a.asn} ${a.asn} ${a.label}` });
     }
   }
-  const blocks = [...index.block].sort((a, b) => az(blockName(a), blockName(b)) || (a.startsWith('geoip') ? 1 : -1));
+  // AdGuard DNS filter and HaGeZi Normal are built by this project from their sources (see build-index)
+  const EXTRA_META = { adguard: ['includes EasyList', 'easylist easyprivacy adguard dns filter ads trackers'], hagezi: ['domains', 'hagezi multi normal ads trackers'] };
+  const blocks = [...index.block, ...(index.blockExtra || [])].sort((a, b) => az(blockName(a), blockName(b)) || (a.startsWith('geoip') ? 1 : -1));
   for (const b of blocks) {
-    out.push({ tab: 'block', visual: blockVisual(b), label: `${blockName(b)}${b.startsWith('geoip') ? ' IPs' : ''}`, meta: b.startsWith('geoip') ? 'IP list' : 'domains', items: [{ kind: 'block', n: b }], search: `${blockName(b)} ${b}` });
+    const extra = EXTRA_META[b];
+    out.push({ tab: 'block', visual: blockVisual(b), label: `${blockName(b)}${b.startsWith('geoip') ? ' IPs' : ''}`, meta: extra ? extra[0] : b.startsWith('geoip') ? 'IP list' : 'domains', items: [{ kind: 'block', n: b }], search: `${blockName(b)} ${b} ${extra ? extra[1] : ''}` });
   }
   return out;
 }
@@ -711,7 +714,7 @@ function renderSources() {
       <li><span><a href="https://github.com/${s[k].repo}/tree/${s[k].branch}" target="_blank" rel="noopener">${s[k].name}</a><span class="what">${what}</span></span>
       <time datetime="${s[k].updated}">updated ${fmtDate(s[k].updated)}</time></li>`).join('')}${names}
     </ul>
-    <p class="sources-foot">Flags: <a href="https://github.com/lipis/flag-icons" target="_blank" rel="noopener">flag-icons</a> (MIT). Service icons: Google, with DuckDuckGo as a fallback. This page re-reads the lists every day; it last did so ${fmtDate(index.generated)}. <a href="https://github.com/AzizKamboh/hiddify-rules" target="_blank" rel="noopener">Source code on GitHub</a>.</p>`;
+    <p class="sources-foot">Flags: <a href="https://github.com/lipis/flag-icons" target="_blank" rel="noopener">flag-icons</a> (MIT). Ad lists: AdGuard DNS filter and HaGeZi Multi Normal (GPL-3.0), converted daily. Service icons: Google, with DuckDuckGo as a fallback. This page re-reads the lists every day; it last did so ${fmtDate(index.generated)}. <a href="https://github.com/AzizKamboh/hiddify-rules" target="_blank" rel="noopener">Source code on GitHub</a>.</p>`;
   $('#syncLine').textContent = `Last synced ${fmtDate(index.generated)}`;
 }
 

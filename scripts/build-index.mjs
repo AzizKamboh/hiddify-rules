@@ -10,6 +10,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdirSync, existsSync, readFileSync, writeFileSync, rmSync, readdirSync, copyFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { gunzipSync } from 'node:zlib';
+import { createHash } from 'node:crypto';
 import { promises as dns } from 'node:dns';
 import { fileURLToPath } from 'node:url';
 
@@ -112,6 +113,67 @@ async function buildAsnNames(asnSet, dest) {
  * (sets/geosite-pk-{id}.json). Domains that no longer exist are dropped and reported; a lookup
  * that fails for any other reason keeps the domain, so a bad DNS day never empties a list.
  */
+/**
+ * Ad block lists built here from their own sources with sing-box's converter, so they stay current:
+ *  - adguard: AdGuard DNS filter (AdGuard Base, Social, Tracking, Mobile Ads, EasyList, EasyPrivacy for DNS)
+ *  - hagezi:  HaGeZi Multi NORMAL (ads, trackers, telemetry, phishing, malware, scams)
+ * sing-box 1.10.7 writes rule-set format 2, which every Hiddify with sing-box 1.10 or newer reads.
+ * A list that fails to build is left out (and reported); the rest of the build carries on.
+ */
+const SING_BOX = {
+  version: '1.10.7',
+  url: 'https://github.com/SagerNet/sing-box/releases/download/v1.10.7/sing-box-1.10.7-linux-amd64.tar.gz',
+  sha256: '1951a0785c8b4e1e21e0640227a49528ca772aec3d680061652e3d6b687e00fe',
+};
+const ADBLOCK = {
+  adguard: { url: 'https://adguardteam.github.io/AdGuardSDNSFilter/Filters/filter.txt', type: 'adguard' },
+  hagezi: { url: 'https://raw.githubusercontent.com/hagezi/dns-blocklists/main/wildcard/multi-onlydomains.txt', type: 'domains' },
+};
+async function buildAdblock(problems) {
+  const built = [];
+  let sb;
+  try {
+    const tgz = join(cache, `sing-box-${SING_BOX.version}.tar.gz`);
+    if (!existsSync(tgz)) {
+      const res = await fetch(SING_BOX.url);
+      if (!res.ok) throw new Error(`download HTTP ${res.status}`);
+      writeFileSync(tgz, Buffer.from(await res.arrayBuffer()));
+    }
+    const sum = createHash('sha256').update(readFileSync(tgz)).digest('hex');
+    if (sum !== SING_BOX.sha256) { rmSync(tgz); throw new Error(`checksum mismatch (${sum})`); }
+    execFileSync('tar', ['xzf', tgz, '-C', cache]);
+    sb = join(cache, `sing-box-${SING_BOX.version}-linux-amd64`, 'sing-box');
+  } catch (err) {
+    problems.push(`adblock: sing-box unavailable: ${err.message}`);
+    return built;
+  }
+  mkdirSync(setsDir, { recursive: true });
+  for (const [name, src] of Object.entries(ADBLOCK)) {
+    try {
+      const res = await fetch(src.url);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const text = await res.text();
+      const out = join(setsDir, `block-${name}.srs`);
+      const tmp = join(cache, `adblock-${name}`);
+      if (src.type === 'adguard') {
+        writeFileSync(`${tmp}.txt`, text);
+        execFileSync(sb, ['rule-set', 'convert', '--type', 'adguard', '--output', out, `${tmp}.txt`]);
+      } else {
+        const domains = text.split('\n').map((l) => l.trim().replace(/^\*\./, '')).filter((l) => l && !l.startsWith('#'));
+        if (domains.length < 1000) throw new Error(`only ${domains.length} domains`);
+        writeFileSync(`${tmp}.json`, JSON.stringify({ version: 2, rules: [{ domain_suffix: domains }] }));
+        execFileSync(sb, ['rule-set', 'compile', '--output', out, `${tmp}.json`]);
+      }
+      built.push(name);
+      console.log(`adblock: ${name} built (${Math.round(readFileSync(out).length / 1024)} KB)`);
+    } catch (err) {
+      problems.push(`adblock: ${name} not built: ${err.message}`);
+      console.warn(`adblock: ${name} not built: ${err.message}`);
+    }
+  }
+  return built;
+}
+
 async function buildPakistan(problems) {
   const text = readFileSync(join(root, 'data/pakistan.txt'), 'utf8');
   const lists = [];
@@ -246,6 +308,7 @@ async function main() {
   if (nameCount) console.log(`network names: ${nameCount}`);
 
   const pakistan = await buildPakistan(problems);
+  const adblock = await buildAdblock(problems);
 
   const index = {
     generated: new Date().toISOString(),
@@ -264,13 +327,15 @@ async function main() {
       pk: `${pagesUrl}/sets/geosite-pk-{n}.json`,
       asn: raw('mc', 'asn/AS{n}.srs'),
       block: raw('hg', 'block/{n}.srs'),
+      block_extra: `${pagesUrl}/sets/block-{n}.srs`,
     },
     pakistan,
-    counts: { sites: sites.length, countries: snCountries.length, services: services.length, asns: mcAsns.length, block: hgBlock.length },
+    counts: { sites: sites.length, countries: snCountries.length, services: services.length, asns: mcAsns.length, block: hgBlock.length + adblock.length },
     sites,
     countries: snCountries,
     services,
     block: hgBlock,
+    blockExtra: adblock,
     mirroredAsns: mirrored.asns,
     allAsnsMirrored: mirrored.allAsns,
     featured,
