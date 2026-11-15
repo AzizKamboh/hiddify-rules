@@ -505,9 +505,10 @@ function entryButton(e) {
   if (e.title) b.title = e.title;
   // a part of a bundle switches only itself, even while the whole bundle is picked
   b.onclick = () => toggleItems(e.items, !on, e.parent);
-  if (!e.children) return b;
   const row = document.createElement('div');
-  row.className = 'item-row';
+  row.className = e.parent ? 'item-row child' : 'item-row';
+  row.append(b, peekLink(e.label, e.items));
+  if (!e.children) return row;
   const open = pkOpen || Boolean(query.trim());
   const x = document.createElement('button');
   x.type = 'button';
@@ -516,11 +517,28 @@ function entryButton(e) {
   x.setAttribute('aria-label', `${open ? 'Hide' : 'Show'} what ${e.label} includes`);
   x.innerHTML = icon('i-chevron');
   x.onclick = () => { pkOpen = !open; renderLibrary(); };
-  row.append(b, x);
+  row.append(x);
   if (!open) return row;
   const frag = document.createDocumentFragment();
   frag.append(row, ...e.children.map(entryButton));
   return frag;
+}
+
+const PEEK_KIND = { site: 'websites', service: 'IPs', country: 'country IPs', asn: 'network', block: 'block list', pk: 'websites', url: 'list' };
+
+/** The eye button: opens what a list holds in a new tab. */
+function peekLink(label, items) {
+  const a = document.createElement('a');
+  a.className = 'peek';
+  const q = new URLSearchParams({ t: label });
+  for (const i of items) q.append('p', `${itemLabel(i)}|${PEEK_KIND[i.kind] || ''}|${new URL(itemUrl(i), location.href).href}`);
+  a.href = `view.html?${q}`;
+  a.target = '_blank';
+  a.rel = 'noopener';
+  a.title = `See what’s inside ${label}`;
+  a.setAttribute('aria-label', `See what’s inside ${label} (opens in a new tab)`);
+  a.innerHTML = icon('i-eye');
+  return a;
 }
 
 function toggleItems(items, add, partOf = null) {

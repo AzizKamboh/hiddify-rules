@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>What’s inside — Hiddify Split Tunneling</title>
+  <meta name="robots" content="noindex">
+  <meta name="color-scheme" content="light dark">
+  <script>
+    (function () {
+      var pref = 'system';
+      try { pref = localStorage.getItem('hiddify-rules-builder:theme') || 'system'; } catch (e) {}
+      var dark = pref === 'dark' || (pref === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+    })();
+  </script>
+  <link rel="stylesheet" href="style.css?v=__BUILD__">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%232f5bd3'/%3E%3Cpath d='M9.5 9.5h9a3.75 3.75 0 0 1 0 7.5h-5a3.75 3.75 0 0 0 0 7.5h9' stroke='white' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='9.5' cy='9.5' r='2.4' fill='white'/%3E%3Ccircle cx='22.5' cy='24.5' r='2.4' fill='white'/%3E%3C/svg%3E">
+</head>
+<body class="viewer">
+  <svg class="sprite" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+      <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></symbol>
+      <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></symbol>
+      <symbol id="i-link" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9"/><path d="M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4"/></symbol>
+      <symbol id="i-alert" viewBox="0 0 24 24"><path d="M10.3 4.3 2.6 18a2 2 0 0 0 1.7 3h15.4a2 2 0 0 0 1.7-3L13.7 4.3a2 2 0 0 0-3.4 0Z"/><path d="M12 10v4M12 17.5h.01"/></symbol>
+    </defs>
+  </svg>
+
+  <header class="appbar">
+    <a class="brand" href="./" aria-label="Hiddify Split Tunneling, home">
+      <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8"/><path d="M9.5 9.5h9a3.75 3.75 0 0 1 0 7.5h-5a3.75 3.75 0 0 0 0 7.5h9"/><circle cx="9.5" cy="9.5" r="2.4"/><circle cx="22.5" cy="24.5" r="2.4"/></svg>
+      <span class="brand-text"><span class="brand-name">Hiddify Split Tunneling</span></span>
+    </a>
+  </header>
+
+  <main class="view-main">
+    <div class="view-head">
+      <h1 id="title">Loading…</h1>
+      <p class="muted" id="subtitle"></p>
+    </div>
+    <ul class="view-parts" id="parts"></ul>
+    <div class="view-tools">
+      <label class="search">
+        <svg class="ic"><use href="#i-search"/></svg>
+        <input type="search" id="q" placeholder="Search this list, e.g. a domain or an IP" autocomplete="off" spellcheck="false" aria-label="Search this list">
+      </label>
+      <button type="button" class="btn btn-secondary" id="download" disabled><svg class="ic"><use href="#i-download"/></svg>Download .txt</button>
+    </div>
+    <p class="view-answer" id="answer" hidden></p>
+    <div id="sections" aria-live="polite"></div>
+  </main>
+
+  <script type="module" src="view.js?v=__BUILD__"></script>
+</body>
+</html>
