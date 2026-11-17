@@ -111,6 +111,13 @@ universalcinemas.com
 nueplex.com
 mjunoon.tv
 aryplus.tv
+tapmadlive.akamaized.net
+saseries.akamaized.net
+uefaleagsec.akamaized.net
+premierleagpl23.akamaized.net
+premierleageplnew2.akamaized.net
+vodnewv2.akamaized.net
+vod-tapmad.akamaized.net
 
 [shopping] Shopping and food
 khaadi.com
